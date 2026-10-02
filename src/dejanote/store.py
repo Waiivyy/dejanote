@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from dejanote.chunking import Chunk
+from dejanote.chunking import CHUNKER_VERSION, Chunk
 
 SCHEMA_VERSION = 1
 
@@ -53,35 +53,60 @@ class IndexedChunk:
 
 
 class IndexMismatchError(RuntimeError):
-    """The index on disk was built with a different model or format."""
+    """The index on disk was built with a different model, chunker or format."""
 
 
 class Store:
-    def __init__(self, path: Path, model_id: str, dimension: int):
+    """Open (or create) the index for one model and chunker version.
+
+    An index built for anything else is refused, or wiped and started afresh
+    when rebuild_if_incompatible is set, which is what indexing wants: its
+    vectors or chunks would be useless with the current model and rules.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        model_id: str,
+        dimension: int,
+        *,
+        chunker_version: int = CHUNKER_VERSION,
+        rebuild_if_incompatible: bool = False,
+    ):
         self.path = path
         self.dimension = dimension
+        self.rebuilt = False
         path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(path)
         try:
             self._db.execute("PRAGMA foreign_keys = ON")
             self._db.executescript(_SCHEMA)
-            self._check_meta(model_id, dimension)
+            self._check_meta(model_id, dimension, chunker_version, rebuild_if_incompatible)
         except BaseException:
             self._db.close()
             raise
 
-    def _check_meta(self, model_id: str, dimension: int) -> None:
-        expected = {"schema_version": str(SCHEMA_VERSION), "model": model_id, "dimension": str(dimension)}
+    def _check_meta(self, model_id: str, dimension: int, chunker_version: int, rebuild: bool) -> None:
+        expected = {
+            "schema_version": str(SCHEMA_VERSION),
+            "model": model_id,
+            "dimension": str(dimension),
+            "chunker": str(chunker_version),
+        }
         stored = dict(self._db.execute("SELECT key, value FROM meta"))
-        if not stored:
-            with self._db:
-                self._db.executemany("INSERT INTO meta (key, value) VALUES (?, ?)", expected.items())
-        elif stored != expected:
+        if stored == expected:
+            return
+        if stored and not rebuild:
             raise IndexMismatchError(
-                f"The index at {self.path} was built with {stored.get('model')} "
-                f"(format {stored.get('schema_version')}), but dejanote now uses {model_id} "
-                f"(format {SCHEMA_VERSION}). Delete it and run `dejanote index` again."
+                f"The index at {self.path} was built with {_describe(stored)}, "
+                f"but dejanote now uses {_describe(expected)}. "
+                "Run `dejanote index` on your notes to rebuild it."
             )
+        with self._db:
+            self._db.execute("DELETE FROM files")  # their chunks go with them
+            self._db.execute("DELETE FROM meta")
+            self._db.executemany("INSERT INTO meta (key, value) VALUES (?, ?)", expected.items())
+        self.rebuilt = bool(stored)
 
     def replace_file(self, path: str, content_hash: str, chunks: Sequence[Chunk], vectors: np.ndarray) -> None:
         """Store a file's chunks, replacing whatever was stored for it before, in one transaction."""
@@ -147,3 +172,10 @@ class Store:
 
     def __exit__(self, *exc_info: object) -> None:
         self.close()
+
+
+def _describe(meta: dict[str, str]) -> str:
+    return (
+        f"{meta.get('model', 'an unknown model')} "
+        f"(chunker {meta.get('chunker', 'unknown')}, format {meta.get('schema_version', 'unknown')})"
+    )

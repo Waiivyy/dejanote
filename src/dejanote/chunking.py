@@ -19,6 +19,10 @@ from pathlib import PurePath
 # roughly 200 tokens, which leaves room for the heading path.
 MAX_WORDS = 150
 
+# Bump whenever chunk boundaries or chunk text change. The index records it, so
+# existing indexes get rebuilt instead of keeping chunks made by the old rules.
+CHUNKER_VERSION = 1
+
 MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")

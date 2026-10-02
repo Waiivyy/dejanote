@@ -69,6 +69,24 @@ def test_an_index_built_with_another_model_is_refused(tmp_path):
         Store(tmp_path / "index.db", model_id="other-model@7", dimension=4)
 
 
+def test_an_index_from_an_older_chunker_is_refused(tmp_path):
+    # Unchanged notes would otherwise keep chunks made by the old rules forever.
+    Store(tmp_path / "index.db", model_id="test-model@1", dimension=4, chunker_version=1).close()
+    with pytest.raises(IndexMismatchError):
+        Store(tmp_path / "index.db", model_id="test-model@1", dimension=4, chunker_version=2)
+
+
+def test_an_incompatible_index_is_rebuilt_from_scratch_when_asked(tmp_path):
+    with Store(tmp_path / "index.db", model_id="test-model@1", dimension=4) as store:
+        store.replace_file("/notes/sourdough.md", "hash-1", [FEEDING, HOOCH], VECTORS)
+        assert not store.rebuilt
+    with Store(tmp_path / "index.db", model_id="other-model@7", dimension=4, rebuild_if_incompatible=True) as store:
+        assert store.rebuilt
+        assert store.counts() == (0, 0)
+    with Store(tmp_path / "index.db", model_id="other-model@7", dimension=4) as store:
+        assert not store.rebuilt  # the rebuilt index now belongs to the new model
+
+
 def test_an_empty_index_has_no_vectors(store):
     ids, matrix = store.vectors()
     assert len(ids) == 0
