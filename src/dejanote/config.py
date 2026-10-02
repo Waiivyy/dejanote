@@ -20,3 +20,7 @@ def data_home() -> Path:
 
 def models_dir() -> Path:
     return data_home() / "models"
+
+
+def index_path() -> Path:
+    return data_home() / "index.db"

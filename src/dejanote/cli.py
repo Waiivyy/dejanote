@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import time
+from pathlib import Path
+
 import typer
 from rich.console import Console
+from rich.markup import escape
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
-from dejanote import __version__
+from dejanote import __version__, config
 from dejanote.embedding import (
     DEFAULT_MODEL,
+    Embedder,
     ModelIntegrityError,
+    ModelNotFoundError,
     default_model_dir,
     download_model,
     is_model_downloaded,
     verify_model_files,
 )
+from dejanote.indexer import index_folder
+from dejanote.privacy import NetworkGuard, block_network
+from dejanote.store import IndexMismatchError, Store
 
 app = typer.Typer(
     help="Search your notes by meaning, entirely offline.",
@@ -76,3 +86,96 @@ def setup(
             raise typer.Exit(1) from None
     console.print(f"[green]Done.[/] Model saved to {target}")
     console.print("From here on, dejanote works fully offline.")
+
+
+@app.command()
+def index(
+    folder: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+        help="Folder of notes to index. Subfolders are included.",
+    ),
+) -> None:
+    """Index a folder of Markdown and text notes. Runs fully offline."""
+    started = time.perf_counter()
+    with block_network() as guard:
+        embedder = _load_embedder()
+        with _open_index(embedder) as store, _progress() as progress:
+            task = progress.add_task("Indexing", total=None)
+            report = index_folder(
+                folder,
+                store,
+                embedder,
+                on_progress=lambda done, total, _path: progress.update(task, completed=done, total=total),
+            )
+    elapsed = time.perf_counter() - started
+
+    console.print(
+        f"Indexed {_plural(report.indexed, 'note')} from {escape(_display(folder))} "
+        f"into {_plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
+    )
+    if report.removed:
+        console.print(f"Removed {_plural(report.removed, 'note')} that no longer exist.")
+    if report.skipped:
+        console.print(f"[yellow]Skipped {_plural(len(report.skipped), 'file')}:[/]")
+        for path, reason in report.skipped:
+            console.print(f"  {escape(_display(Path(path)))} ({escape(reason)})")
+    console.print(f"Index: {escape(_display(config.index_path()))}")
+    _report_network(guard)
+
+
+def _load_embedder() -> Embedder:
+    try:
+        return Embedder()
+    except ModelNotFoundError as err:
+        console.print(str(err), style="red", markup=False)
+        raise typer.Exit(1) from None
+
+
+def _open_index(embedder: Embedder) -> Store:
+    try:
+        return Store(config.index_path(), embedder.model_id, embedder.dimension)
+    except IndexMismatchError as err:
+        console.print(str(err), style="red", markup=False)
+        raise typer.Exit(1) from None
+
+
+def _progress() -> Progress:
+    """A progress bar that is only drawn on a terminal, so piped output stays clean."""
+    return Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+        transient=True,
+        disable=not console.is_terminal,
+    )
+
+
+def _report_network(guard: NetworkGuard) -> None:
+    """Every offline command ends with a receipt: nothing attempted, or exactly what was blocked."""
+    if not guard.attempts:
+        console.print("[dim]No network connections were attempted.[/]")
+        return
+    console.print(
+        f"[yellow]Warning: blocked {_plural(len(guard.attempts), 'network attempt')} during this run. "
+        "Nothing was sent.[/]"
+    )
+    for attempt in guard.attempts:
+        console.print(f"  {escape(attempt)}")
+
+
+def _display(path: Path) -> str:
+    """A path as short as possible: relative to the current folder, else to the home folder."""
+    if path.is_relative_to(Path.cwd()):
+        return str(path.relative_to(Path.cwd()))
+    if path.is_relative_to(Path.home()):
+        return str(Path("~") / path.relative_to(Path.home()))
+    return str(path)
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
