@@ -21,8 +21,11 @@ classifiers = [
     "Topic :: Text Processing :: Indexing",
 ]
 dependencies = [
-    "sentence-transformers>=3.0",
-    "huggingface-hub>=0.23",
+    "sentence-transformers>=6.0,<7",
+    # The one-time download is kept free of telemetry, tokens and the native
+    # transfer client through huggingface-hub settings. A new major version could
+    # rename them, so only the tested major is allowed.
+    "huggingface-hub>=1.31,<2",
     "truststore>=0.9",
     "numpy>=1.24",
     "typer>=0.12",
