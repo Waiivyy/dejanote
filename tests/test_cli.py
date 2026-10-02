@@ -300,3 +300,21 @@ def test_watch_reports_each_change_and_stops_cleanly_on_ctrl_c(home_with_model, 
     assert "Stopped watching" in result.output
     assert "no network" in result.output.lower()
     assert outer_guard.attempts == []  # the command's own guard covered the whole session
+
+
+@pytest.mark.model
+def test_watch_summarises_large_batches_instead_of_listing_every_note(home_with_model, tmp_path, monkeypatch):
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    for i in range(5):
+        (notes / f"note-{i}.md").write_text(f"# Note {i}\n\nSomething worth remembering, part {i}.\n")
+
+    def no_events_then_ctrl_c(root, **options):
+        raise KeyboardInterrupt
+        yield  # a generator, like the real file events
+
+    monkeypatch.setattr("dejanote.watcher.watch", no_events_then_ctrl_c)
+    result = runner.invoke(app, ["watch", str(notes)])
+    assert result.exit_code == 0, result.output
+    assert "added 5 notes" in result.output
+    assert "note-3.md" not in result.output

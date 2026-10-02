@@ -6,6 +6,7 @@ import os
 import tempfile
 import textwrap
 import time
+from collections import Counter
 from pathlib import Path
 
 import typer
@@ -257,13 +258,22 @@ def _print_watch_update(report: IndexReport, seconds: float, root: Path, first: 
     if first and not report.changes:
         console.print(f"[dim]{stamp}[/]  up to date: {plural(report.notes, 'note')}")
     elif report.changes:
-        changes = ", ".join(
-            f"{kind} {escape(Path(path).relative_to(root).as_posix())}" for kind, path in sorted(report.changes)
-        )
+        changes = _describe_changes(report.changes, root)
         embedded = f" ({plural(report.chunks, 'chunk')} embedded, {seconds:.2f}s)" if report.chunks else ""
         console.print(f"[dim]{stamp}[/]  {changes}{embedded}")
     for path, reason in report.skipped:
         console.print(f"[dim]{stamp}[/]  [yellow]skipped {escape(short_path(Path(path)))} ({escape(reason)})[/]")
+
+
+def _describe_changes(changes: list[tuple[str, str]], root: Path, listed: int = 3) -> str:
+    """Name the notes in a small batch; count them in a large one, such as a first run."""
+    if len(changes) <= listed:
+        return ", ".join(
+            f"{kind} {escape(Path(path).relative_to(root).as_posix())}" for kind, path in sorted(changes)
+        )
+    counts = Counter(kind for kind, _ in changes)
+    kinds = [kind for kind in ("added", "updated", "removed") if counts[kind]]
+    return ", ".join(f"{kind} {plural(counts[kind], 'note')}" for kind in kinds)
 
 
 _SAMPLE_NOTES = {
