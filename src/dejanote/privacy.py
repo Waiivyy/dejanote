@@ -18,12 +18,20 @@ import os
 import socket
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import NoReturn
+
+# Without these, huggingface_hub fetches an "AI agent" registry and adds the
+# torch version and any detected coding agent to its User-Agent header.
+_NO_TELEMETRY_ENV = {
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+    "HF_HUB_DISABLE_UPDATE_CHECK": "1",
+}
 
 _OFFLINE_ENV = {
     "HF_HUB_OFFLINE": "1",
     "TRANSFORMERS_OFFLINE": "1",
-    "HF_HUB_DISABLE_TELEMETRY": "1",
+    **_NO_TELEMETRY_ENV,
 }
 
 _IP_FAMILIES = (socket.AF_INET, socket.AF_INET6)
@@ -54,6 +62,25 @@ def enable_offline_mode() -> None:
     Call this before they are imported, since they read these variables at import time.
     """
     os.environ.update(_OFFLINE_ENV)
+
+
+def minimize_download_footprint(hf_home: Path) -> None:
+    """Settings for the one-time model download: fetch the files and nothing else.
+
+    No stored Hugging Face token is attached (the model is public), nothing
+    extra goes into the User-Agent, files come over plain HTTPS through Python
+    rather than the native Xet transfer client, and any library bookkeeping is
+    written under hf_home instead of ~/.cache/huggingface. Call this before
+    huggingface_hub is imported.
+    """
+    os.environ.update(
+        {
+            **_NO_TELEMETRY_ENV,
+            "HF_HUB_DISABLE_IMPLICIT_TOKEN": "1",
+            "HF_HUB_DISABLE_XET": "1",
+            "HF_HOME": str(hf_home),
+        }
+    )
 
 
 @contextlib.contextmanager
