@@ -164,6 +164,17 @@ class Store:
         }
         return [found[i] for i in ids]
 
+    def snapshot(self) -> IndexSnapshot:
+        """Everything search needs, copied into memory in one pass."""
+        rows = self._db.execute(
+            "SELECT c.id, f.path, c.headings, c.start_line, c.end_line, c.text, c.embedding"
+            " FROM chunks c JOIN files f ON f.id = c.file_id ORDER BY c.id"
+        ).fetchall()
+        ids = np.array([row[0] for row in rows], dtype=np.int64)
+        matrix = np.frombuffer(b"".join(row[6] for row in rows), dtype=_FLOAT32).reshape(len(rows), self.dimension)
+        chunks = [IndexedChunk(row[1], Chunk(row[5], tuple(json.loads(row[2])), row[3], row[4])) for row in rows]
+        return IndexSnapshot(ids, matrix, chunks, files=self.counts()[0])
+
     def close(self) -> None:
         self._db.close()
 
@@ -172,6 +183,29 @@ class Store:
 
     def __exit__(self, *exc_info: object) -> None:
         self.close()
+
+
+class IndexSnapshot:
+    """An in-memory copy of the index that answers the same questions search asks of a Store.
+
+    It holds no database connection, so it can be searched from any thread,
+    and every search avoids the database entirely.
+    """
+
+    def __init__(self, ids: np.ndarray, matrix: np.ndarray, chunks: list[IndexedChunk], files: int):
+        self._ids = ids
+        self._matrix = matrix
+        self._chunks = dict(zip(ids.tolist(), chunks))
+        self._files = files
+
+    def vectors(self) -> tuple[np.ndarray, np.ndarray]:
+        return self._ids, self._matrix
+
+    def chunks(self, ids: Sequence[int]) -> list[IndexedChunk]:
+        return [self._chunks[int(i)] for i in ids]
+
+    def counts(self) -> tuple[int, int]:
+        return self._files, len(self._ids)
 
 
 def _describe(meta: dict[str, str]) -> str:

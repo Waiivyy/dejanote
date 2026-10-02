@@ -3,19 +3,28 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Protocol
 
 import numpy as np
 
 from dejanote.chunking import LINE_ITEM, Chunk
-from dejanote.store import Store
+from dejanote.store import IndexedChunk
 
 _FENCE = re.compile(r"^(```|~~~)")
 
 
 class QueryEmbedder(Protocol):
     def embed_query(self, text: str) -> np.ndarray: ...
+
+
+class ChunkSource(Protocol):
+    """Where search reads from: a Store, or an IndexSnapshot held in memory."""
+
+    def vectors(self) -> tuple[np.ndarray, np.ndarray]: ...
+
+    def chunks(self, ids: Sequence[int]) -> list[IndexedChunk]: ...
 
 
 @dataclass(frozen=True)
@@ -27,7 +36,7 @@ class SearchResult:
 
 
 def search(
-    store: Store, embedder: QueryEmbedder, query: str, limit: int = 5, related: int = 2
+    store: ChunkSource, embedder: QueryEmbedder, query: str, limit: int = 5, related: int = 2
 ) -> list[SearchResult]:
     """The notes that best match the query, one result per note, best first.
 
@@ -48,7 +57,7 @@ def search(
     return list(by_note.values())
 
 
-def rank_chunks(store: Store, embedder: QueryEmbedder, query: str, limit: int) -> list[SearchResult]:
+def rank_chunks(store: ChunkSource, embedder: QueryEmbedder, query: str, limit: int) -> list[SearchResult]:
     """The chunks most similar in meaning to the query, best first, however many share a note.
 
     Every stored vector has unit length, so one matrix-vector product gives the

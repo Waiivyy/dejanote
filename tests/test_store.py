@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import sqlite3
+import threading
+
 import numpy as np
 import pytest
 
 from dejanote.chunking import Chunk
+from dejanote.search import search
 from dejanote.store import IndexedChunk, IndexMismatchError, Store
 
 FEEDING = Chunk("Discard all but 50 g, then feed.", ("Sourdough", "Feeding"), 5, 6)
@@ -85,6 +89,42 @@ def test_an_incompatible_index_is_rebuilt_from_scratch_when_asked(tmp_path):
         assert store.counts() == (0, 0)
     with Store(tmp_path / "index.db", model_id="other-model@7", dimension=4) as store:
         assert not store.rebuilt  # the rebuilt index now belongs to the new model
+
+
+def test_a_snapshot_holds_the_same_index_and_outlives_the_store(tmp_path):
+    with Store(tmp_path / "index.db", model_id="test-model@1", dimension=4) as store:
+        store.replace_file("/notes/sourdough.md", "hash-1", [FEEDING, HOOCH], VECTORS)
+        store.replace_file("/notes/empty.md", "hash-2", [], np.empty((0, 4)))
+        snapshot = store.snapshot()
+    ids, matrix = snapshot.vectors()
+    np.testing.assert_array_equal(matrix, VECTORS)
+    assert snapshot.chunks(ids[::-1]) == [
+        IndexedChunk("/notes/sourdough.md", HOOCH),
+        IndexedChunk("/notes/sourdough.md", FEEDING),
+    ]
+    assert snapshot.counts() == (2, 2)
+
+
+def test_a_snapshot_can_be_searched_from_another_thread_unlike_the_store(tmp_path):
+    # The interactive browser searches in background threads; SQLite connections
+    # refuse to be used from a thread other than the one that opened them.
+    query = type("FixedQuery", (), {"embed_query": lambda self, text: np.array([1.0, 0, 0, 0], dtype=np.float32)})()
+    with Store(tmp_path / "index.db", model_id="test-model@1", dimension=4) as store:
+        store.replace_file("/notes/sourdough.md", "hash-1", [FEEDING, HOOCH], VECTORS)
+        snapshot = store.snapshot()
+        outcomes = {}
+
+        def search_from_a_thread(source, name):
+            try:
+                outcomes[name] = search(source, query, "feeding", limit=1)[0].chunk
+            except sqlite3.ProgrammingError:
+                outcomes[name] = "refused"
+
+        for source, name in ((snapshot, "snapshot"), (store, "store")):
+            thread = threading.Thread(target=search_from_a_thread, args=(source, name))
+            thread.start()
+            thread.join()
+    assert outcomes == {"snapshot": FEEDING, "store": "refused"}
 
 
 def test_an_empty_index_has_no_vectors(store):
