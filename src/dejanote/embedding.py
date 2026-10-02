@@ -128,7 +128,9 @@ class Embedder:
             )
         enable_offline_mode()
         from sentence_transformers import SentenceTransformer
+        from transformers.utils import logging as transformers_logging
 
+        transformers_logging.disable_progress_bar()  # keep library progress bars out of our output
         self._model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:

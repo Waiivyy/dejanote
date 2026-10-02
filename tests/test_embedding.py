@@ -82,6 +82,13 @@ def test_a_paraphrase_scores_far_above_an_unrelated_query(embedder):
 
 
 @pytest.mark.model
+def test_loading_the_model_prints_nothing(model_dir, capfd):
+    # Library progress bars would clutter every search's output.
+    Embedder(model_dir=model_dir)
+    assert capfd.readouterr() == ("", "")
+
+
+@pytest.mark.model
 def test_loading_and_embedding_make_no_network_attempts(model_dir):
     with block_network() as guard:
         Embedder(model_dir=model_dir).embed_query("anything at all")
