@@ -13,6 +13,7 @@ from rich.markup import escape
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from dejanote import __version__, config
+from dejanote.display import plural, short_path
 from dejanote.embedding import (
     DEFAULT_MODEL,
     Embedder,
@@ -63,10 +64,10 @@ def setup(
             verify_model_files(target, spec)
         except ModelIntegrityError as err:
             console.print(
-                f"[yellow]The model at {escape(_display(target))} failed verification:[/] {escape(str(err))}"
+                f"[yellow]The model at {escape(short_path(target))} failed verification:[/] {escape(str(err))}"
             )
         else:
-            console.print(f"Model already downloaded and verified: {escape(_display(target))}")
+            console.print(f"Model already downloaded and verified: {escape(short_path(target))}")
             console.print("Nothing to do. Every other command runs fully offline.")
             return
 
@@ -80,7 +81,7 @@ def setup(
     console.print(
         f"  size      about {spec.download_mb} MB, {len(spec.files)} files, each checked against a pinned sha256"
     )
-    console.print(f"  to        {escape(_display(target))}\n")
+    console.print(f"  to        {escape(short_path(target))}\n")
     if not yes:
         typer.confirm("Download it now?", abort=True)
 
@@ -91,7 +92,7 @@ def setup(
             console.print(f"[red]Download failed:[/] {err}")
             console.print("Nothing was saved. Check your connection and run `dejanote setup` again.")
             raise typer.Exit(1) from None
-    console.print(f"[green]Done.[/] Model saved to {escape(_display(target))}")
+    console.print(f"[green]Done.[/] Model saved to {escape(short_path(target))}")
     console.print("From here on, dejanote works fully offline.")
 
 
@@ -134,21 +135,21 @@ def index(
         for count, label in ((report.added, "new"), (report.updated, "changed"), (report.unchanged, "unchanged"))
         if count
     )
-    summary = f"Indexed {_plural(report.notes, 'note')} from {escape(_display(folder))}"
+    summary = f"Indexed {plural(report.notes, 'note')} from {escape(short_path(folder))}"
     summary += f" ({changes})." if changes else "."
     if report.chunks:
-        summary += f" Embedded {_plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
+        summary += f" Embedded {plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
     else:
         summary += f" Nothing new to embed ({elapsed:.1f}s)."
     console.print(summary)
     if report.removed:
         verb = "exists" if report.removed == 1 else "exist"
-        console.print(f"Removed {_plural(report.removed, 'note')} that no longer {verb}.")
+        console.print(f"Removed {plural(report.removed, 'note')} that no longer {verb}.")
     if report.skipped:
-        console.print(f"[yellow]Skipped {_plural(len(report.skipped), 'file')}:[/]")
+        console.print(f"[yellow]Skipped {plural(len(report.skipped), 'file')}:[/]")
         for path, reason in report.skipped:
-            console.print(f"  {escape(_display(Path(path)))} ({escape(reason)})")
-    console.print(f"Index: {escape(_display(config.index_path()))}")
+            console.print(f"  {escape(short_path(Path(path)))} ({escape(reason)})")
+    console.print(f"Index: {escape(short_path(config.index_path()))}")
     _report_network(guard)
 
 
@@ -206,7 +207,7 @@ def verify() -> None:
                 report = index_folder(notes, store, embedder)
                 results = search(store, embedder, _SAMPLE_QUERY, limit=1)
     found = Path(results[0].path).name if results else "nothing"
-    console.print(f"  Indexed {_plural(report.notes, 'sample note')} into a throwaway index.")
+    console.print(f"  Indexed {plural(report.notes, 'sample note')} into a throwaway index.")
     console.print(f'  Searched for "{_SAMPLE_QUERY}": best match {found}.')
 
     if guard.attempts:
@@ -227,7 +228,7 @@ def _print_results(results: list[SearchResult]) -> None:
     indent = " " * 6
     width = max(40, console.width)
     for result in results:
-        location = f"{_display(Path(result.path))}:{result.chunk.start_line}"
+        location = f"{short_path(Path(result.path))}:{result.chunk.start_line}"
         console.print(f"[bold]{result.score:.2f}[/]  [cyan]{escape(location)}[/]")
         console.print(f"{indent}[dim]{escape(' > '.join(result.chunk.headings))}[/]")
         for line in snippet(result.chunk.text).split("\n"):
@@ -285,21 +286,8 @@ def _report_network(guard: NetworkGuard) -> None:
         console.print("[dim]No network connections were attempted.[/]")
         return
     console.print(
-        f"[yellow]Warning: blocked {_plural(len(guard.attempts), 'network attempt')} during this run. "
+        f"[yellow]Warning: blocked {plural(len(guard.attempts), 'network attempt')} during this run. "
         "Nothing was sent.[/]"
     )
     for attempt in guard.attempts:
         console.print(f"  {escape(attempt)}")
-
-
-def _display(path: Path) -> str:
-    """A path as short as possible: relative to the current folder, else to the home folder."""
-    if path.is_relative_to(Path.cwd()):
-        return str(path.relative_to(Path.cwd()))
-    if path.is_relative_to(Path.home()):
-        return str(Path("~") / path.relative_to(Path.home()))
-    return str(path)
-
-
-def _plural(count: int, noun: str) -> str:
-    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
