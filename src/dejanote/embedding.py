@@ -132,7 +132,8 @@ class Embedder:
     """Turns text into unit-length vectors using a model loaded from local files only.
 
     Creating one only checks that the model is on disk. The model itself (and
-    torch) loads on first use, so a run with nothing to embed stays fast.
+    torch) loads on first use, so a run with nothing to embed stays fast. Calls
+    from several threads take turns: the tokenizer is not safe to share.
     """
 
     def __init__(self, spec: ModelSpec = DEFAULT_MODEL, model_dir: Path | None = None):
@@ -146,6 +147,7 @@ class Embedder:
         self.model_id = spec.model_id
         self.dimension = spec.dimension
         self._model = None
+        self._turn = threading.Lock()
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         """One row per text."""
@@ -178,13 +180,14 @@ class Embedder:
         return self._model
 
     def _encode(self, texts: list[str]) -> np.ndarray:
-        vectors = self._loaded().encode(
-            texts,
-            batch_size=32,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        with self._turn:
+            vectors = self._loaded().encode(
+                texts,
+                batch_size=32,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
         return np.asarray(vectors, dtype=np.float32)
 
 

@@ -7,6 +7,8 @@ import hashlib
 import subprocess
 import sys
 import textwrap
+import threading
+import time
 from pathlib import Path
 
 import numpy as np
@@ -73,18 +75,61 @@ def test_missing_model_points_to_setup(tmp_path):
         Embedder(model_dir=tmp_path / "absent")
 
 
+def _placeholder_files(root: Path) -> Path:
+    """Every file of the default model, none of them a real model."""
+    for name in DEFAULT_MODEL.files:
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text("not a model")
+    return root
+
+
 def test_creating_an_embedder_does_not_load_the_model(tmp_path):
     # Every file is present but none is a real model: only an attempt to load them can fail.
-    for name in DEFAULT_MODEL.files:
-        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / name).write_text("not a model")
-    embedder = Embedder(model_dir=tmp_path)
+    embedder = Embedder(model_dir=_placeholder_files(tmp_path))
     assert embedder.dimension == 384
     with block_network() as guard:
         with pytest.raises(Exception):
             embedder.embed_query("first use is when the model loads")
     assert guard.attempts == []
 
+
+
+class OverlapDetector:
+    """Stands in for the model and records whether two calls were ever inside it at once."""
+
+    def __init__(self):
+        self.inside = 0
+        self.overlapped = False
+        self._count = threading.Lock()
+
+    def encode(self, texts, **options):
+        with self._count:
+            self.inside += 1
+            self.overlapped |= self.inside > 1
+        time.sleep(0.05)  # long enough for the other threads to arrive
+        with self._count:
+            self.inside -= 1
+        return np.zeros((len(texts), DEFAULT_MODEL.dimension), dtype=np.float32)
+
+
+def test_calls_from_several_threads_take_turns_with_the_model(tmp_path):
+    # The interactive browser searches and highlights from different threads, and the
+    # tokenizer behind the model is not safe to use from two threads at once.
+    embedder = Embedder(model_dir=_placeholder_files(tmp_path))
+    embedder._model = detector = OverlapDetector()
+    start = threading.Barrier(4)
+
+    def call(method):
+        start.wait()
+        method()
+
+    calls = [lambda: embedder.embed_query("q"), lambda: embedder.embed_documents(["a", "b"])] * 2
+    threads = [threading.Thread(target=call, args=(method,)) for method in calls]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not detector.overlapped
 
 @pytest.mark.model
 def test_the_embedder_reports_its_vector_size_and_model(embedder):
