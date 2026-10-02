@@ -68,9 +68,10 @@ def test_typing_lists_the_best_matching_note_first_and_previews_it(snapshot):
         await pilot.press(*"boiler pressure")
         await settle(pilot)
         assert Path(app.results[0].path).name == "boiler.md"
-        screen = on_screen(app)
-        assert "boiler.md:5" in screen  # the results list shows where the match is
-        assert "filling loop" in screen  # the preview shows the matching section
+        # The entry's own text: what wraps where on screen depends on the machine's paths.
+        entry = app.query_one(OptionList).get_option_at_index(0).prompt.plain
+        assert "boiler.md:5" in entry  # the results list shows where the match is
+        assert "filling loop" in on_screen(app)  # the preview shows the matching section
 
     run(app, script)
 
