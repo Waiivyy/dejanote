@@ -32,6 +32,7 @@ class IndexReport:
     removed: int = 0  # notes dropped from the index because they were deleted
     chunks: int = 0  # chunks embedded this run
     skipped: list[tuple[str, str]] = field(default_factory=list)  # (path, reason)
+    changes: list[tuple[str, str]] = field(default_factory=list)  # ("added" | "updated" | "removed", path)
 
     @property
     def notes(self) -> int:
@@ -72,6 +73,7 @@ def index_folder(
     deleted = [path for path in previous if path not in on_disk]
     store.remove_files(deleted)
     report.removed = len(deleted)
+    report.changes.extend(("removed", path) for path in deleted)
 
     batch = _EmbeddingBatch(store, embedder, report)
     for done, path in enumerate(notes, start=1):
@@ -151,4 +153,5 @@ class _EmbeddingBatch:
                 self.report.added += 1
             else:
                 self.report.updated += 1
+            self.report.changes.append(("added" if note.is_new else "updated", str(note.path)))
         self.notes, self.chunk_count = [], 0

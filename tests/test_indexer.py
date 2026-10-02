@@ -152,6 +152,19 @@ def test_only_new_and_changed_notes_are_embedded(tmp_path, store, fake_embedder)
     assert (report.added, report.updated, report.unchanged) == (1, 1, 1)
 
 
+def test_the_report_names_each_note_that_was_added_updated_or_removed(tmp_path, store, fake_embedder):
+    notes = tmp_path / "notes"
+    edited = _write(notes, "edited.md", "first draft")
+    deleted = _write(notes, "deleted.md", "short lived")
+    _write(notes, "same.md", "never changes")
+    index_folder(notes, store, fake_embedder)
+    edited.write_text("second draft")
+    deleted.unlink()
+    added = _write(notes, "added.md", "brand new")
+    report = index_folder(notes, store, fake_embedder)
+    assert sorted(report.changes) == [("added", str(added)), ("removed", str(deleted)), ("updated", str(edited))]
+
+
 def test_a_change_is_detected_even_when_the_modification_time_is_unchanged(tmp_path, store, fake_embedder):
     # Restoring from a backup or some sync tools keep the old mtime; only content counts.
     note = _write(tmp_path / "notes", "n.md", "original text")
