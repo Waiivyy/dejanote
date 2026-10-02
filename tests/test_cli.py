@@ -180,3 +180,52 @@ def test_search_lists_a_note_once_with_its_other_matching_sections(home_with_mod
     assert result.output.count("home/boiler-pressure.md:") == 1
     boiler_block = next(block for block in result.output.split("\n\n") if "boiler-pressure.md" in block)
     assert "also:" in boiler_block
+
+
+@pytest.mark.model
+def test_verify_passes_on_a_working_install_without_touching_the_network(home_with_model):
+    with block_network() as guard:
+        result = runner.invoke(app, ["verify"])
+    assert result.exit_code == 0, result.output
+    assert "attempted: 0" in result.output
+    assert guard.attempts == []
+    assert not (home_with_model / "index.db").exists()  # your own index is left alone
+
+
+@pytest.mark.model
+def test_verify_fails_when_something_tries_the_network(home_with_model, monkeypatch):
+    real_index_folder = cli.index_folder
+
+    def misbehaving_index_folder(*args, **kwargs):
+        try:
+            socket.getaddrinfo("telemetry.example.com", 443)
+        except OSError:
+            pass
+        return real_index_folder(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "index_folder", misbehaving_index_folder)
+    with block_network():
+        result = runner.invoke(app, ["verify"])
+    assert result.exit_code == 1
+    assert "telemetry.example.com" in result.output
+
+
+@pytest.mark.model
+def test_verify_fails_on_a_tampered_model_file(home, model_dir):
+    # Link every model file except one config file, which gets altered.
+    copy = home / "models" / model_dir.name
+    for name in DEFAULT_MODEL.files:
+        (copy / name).parent.mkdir(parents=True, exist_ok=True)
+        if name == "config.json":
+            (copy / name).write_text((model_dir / name).read_text().replace("384", "385"))
+        else:
+            (copy / name).symlink_to(model_dir / name)
+    result = runner.invoke(app, ["verify"])
+    assert result.exit_code == 1
+    assert "config.json" in result.output
+
+
+def test_verify_without_the_model_explains_how_to_get_it(home):
+    result = runner.invoke(app, ["verify"])
+    assert result.exit_code == 1
+    assert "dejanote setup" in result.output

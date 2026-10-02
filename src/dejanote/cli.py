@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 import textwrap
 import time
 from pathlib import Path
@@ -170,6 +171,54 @@ def search_notes(
     else:
         console.print("The index is empty. Run `dejanote index <folder>` to add notes.", markup=False)
     _report_network(guard)
+
+
+_SAMPLE_NOTES = {
+    "sourdough.md": "# Sourdough starter\n\nDiscard half, then feed it flour and water twice a day.\n"
+    "Grey liquid on top means it is hungry, not dead.\n",
+    "boiler.md": "# Boiler\n\nIf the gauge drops below one bar, top it up with the filling loop.\n",
+    "japan.md": "# Japan trip\n\nPut a Suica card in the phone wallet for trains and buses.\n",
+}
+_SAMPLE_QUERY, _SAMPLE_ANSWER = "keeping my bread yeast culture alive", "sourdough.md"
+
+
+@app.command()
+def verify() -> None:
+    """Check the model files, then index and search sample notes with the network blocked."""
+    console.print("Checking dejanote with every network connection blocked.")
+    with block_network() as guard:
+        embedder = _load_embedder()
+        try:
+            verify_model_files(embedder.model_dir, embedder.spec)
+        except ModelIntegrityError as err:
+            console.print(f"[red]The model files do not match their pinned hashes:[/] {escape(str(err))}")
+            console.print("Run `dejanote setup` to download a fresh copy.", markup=False)
+            raise typer.Exit(1) from None
+        console.print("  Model files match their pinned sha256 hashes.")
+        with tempfile.TemporaryDirectory() as scratch:
+            notes = Path(scratch) / "notes"
+            notes.mkdir()
+            for name, text in _SAMPLE_NOTES.items():
+                (notes / name).write_text(text)
+            with Store(Path(scratch) / "index.db", embedder.model_id, embedder.dimension) as store:
+                report = index_folder(notes, store, embedder)
+                results = search(store, embedder, _SAMPLE_QUERY, limit=1)
+    found = Path(results[0].path).name if results else "nothing"
+    console.print(f"  Indexed {_plural(report.notes, 'sample note')} into a throwaway index.")
+    console.print(f'  Searched for "{_SAMPLE_QUERY}": best match {found}.')
+
+    if guard.attempts:
+        console.print(f"[red]Network connections attempted: {len(guard.attempts)}. All were blocked:[/]")
+        for attempt in guard.attempts:
+            console.print(f"  {escape(attempt)}")
+        raise typer.Exit(1)
+    if found != _SAMPLE_ANSWER:
+        console.print(f"[red]Search went wrong: expected {_SAMPLE_ANSWER} first.[/]")
+        raise typer.Exit(1)
+    console.print("[green]Network connections attempted: 0.[/] Indexing and search work fully offline.")
+    console.print(
+        "For a check that does not rely on dejanote's own guard, see \"Verify it yourself\" in the README."
+    )
 
 
 def _print_results(results: list[SearchResult]) -> None:
