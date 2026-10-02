@@ -59,9 +59,21 @@ def test_verification_rejects_missing_files(tmp_path):
         verify_model_files(tmp_path, spec)
 
 
+def test_a_new_model_revision_gets_a_new_model_id():
+    # The index records the model id, so vectors from another revision are never mixed in.
+    newer = dataclasses.replace(DEFAULT_MODEL, revision="0123456789abcdef")
+    assert newer.model_id != DEFAULT_MODEL.model_id
+
+
 def test_missing_model_points_to_setup(tmp_path):
     with pytest.raises(ModelNotFoundError, match="dejanote setup"):
         Embedder(model_dir=tmp_path / "absent")
+
+
+@pytest.mark.model
+def test_the_embedder_reports_its_vector_size_and_model(embedder):
+    assert embedder.dimension == 384
+    assert embedder.model_id == DEFAULT_MODEL.model_id
 
 
 @pytest.mark.model

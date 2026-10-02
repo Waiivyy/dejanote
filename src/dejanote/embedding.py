@@ -25,6 +25,11 @@ class ModelSpec:
     files: dict[str, str]
     download_mb: int
 
+    @property
+    def model_id(self) -> str:
+        """Identifies the exact weights; the index records it so vectors are never mixed."""
+        return f"{self.repo_id}@{self.revision}"
+
 
 # Every file is pinned, not just the weights: the config files decide which
 # code sentence-transformers runs, so a swapped config is as dangerous as
@@ -132,6 +137,9 @@ class Embedder:
 
         transformers_logging.disable_progress_bar()  # keep library progress bars out of our output
         self._model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
+        self.model_id = spec.model_id
+        dimension = getattr(self._model, "get_embedding_dimension", None) or self._model.get_sentence_embedding_dimension
+        self.dimension: int = dimension()
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         """One row per text."""
