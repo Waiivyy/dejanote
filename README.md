@@ -127,7 +127,7 @@ For a check that does not rely on dejanote's own guard, see "Verify it yourself"
 `dejanote setup` is the only command that touches the network, and it asks first. Here is everything it does, so it is never mistaken for a hidden API call:
 
 - **What:** 11 files of [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5), about 135 MB, at a pinned commit.
-- **From where:** huggingface.co, plus Hugging Face's CDN for the weights file. That is 34 HTTPS requests in total, all of them file downloads.
+- **From where:** huggingface.co, plus Hugging Face's CDN for the weights file. That is 34 HTTPS requests in total: one listing of the files at the pinned commit, then metadata checks and a download for each file.
 - **What is sent:** nothing but the file requests. No Hugging Face token, even if you have one saved; no telemetry; no extra registry calls. The User-Agent only names library versions, for example `unknown/None; hf_hub/1.33.0; python/3.12.12`. Your notes are not read.
 - **Integrity:** every file is checked against a sha256 pinned in the [source code](src/dejanote/embedding.py). Files land in a staging folder and are only moved into place once all hashes match, so a tampered or interrupted download is never used.
 - **Where it goes:** `~/.dejanote/models`. Nothing is written to `~/.cache/huggingface` or anywhere else.
