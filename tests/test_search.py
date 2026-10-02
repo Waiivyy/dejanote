@@ -5,8 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from conftest import FakeEmbedder
 from dejanote.chunking import Chunk
-from dejanote.search import passages, rank_chunks, search, snippet, snippet_lines
+from dejanote.search import best_passages, passages, rank_chunks, search, snippet, snippet_lines
 from dejanote.store import Store
 
 
@@ -133,6 +134,20 @@ def test_a_snippet_starts_at_a_focus_that_would_otherwise_be_cut_off():
     assert line[0] == ("... ", False)
     assert line[1] == ("The sentence that matched is here.", True)
     assert sum(len(part) for part, _ in line) <= 80
+
+
+def test_the_passage_to_highlight_is_the_one_closest_to_the_query():
+    # The fake embedder's similarity is word overlap, so the answer can be worked out by hand.
+    text = "The boiler gauge reads low. Feed the starter with flour and water. Trains in Tokyo."
+    [best] = best_passages(FakeEmbedder(), "starter flour water", [text])
+    assert text[best.start : best.end] == "Feed the starter with flour and water."
+
+
+def test_a_text_that_is_one_passage_gets_no_highlight():
+    texts = ["Just one sentence here.", "Two sentences. Here they are."]
+    best = best_passages(FakeEmbedder(), "sentences", texts)
+    assert best[0] is None
+    assert best[1] is not None
 
 
 def test_snippets_join_hard_wrapped_prose_into_one_line_per_paragraph():

@@ -20,6 +20,10 @@ class QueryEmbedder(Protocol):
     def embed_query(self, text: str) -> np.ndarray: ...
 
 
+class PassageEmbedder(QueryEmbedder, Protocol):
+    def embed_documents(self, texts: list[str]) -> np.ndarray: ...
+
+
 class ChunkSource(Protocol):
     """Where search reads from: a Store, or an IndexSnapshot held in memory."""
 
@@ -135,6 +139,30 @@ def passages(text: str) -> list[Passage]:
             prose = [start, end]
     flush()
     return found
+
+
+def best_passages(embedder: PassageEmbedder, query: str, texts: list[str]) -> list[Passage | None]:
+    """For each text, the passage closest in meaning to the query: the one worth highlighting.
+
+    A text that is a single passage gets None, since highlighting all of it says
+    nothing. The passages of all texts are embedded together in one batch.
+    """
+    found = [passages(text) for text in texts]
+    candidates = [
+        " ".join(text[p.start : p.end].split()) for text, ps in zip(texts, found) if len(ps) > 1 for p in ps
+    ]
+    if not candidates:
+        return [None] * len(texts)
+    scores = embedder.embed_documents(candidates) @ embedder.embed_query(query)
+    best: list[Passage | None] = []
+    position = 0
+    for ps in found:
+        if len(ps) > 1:
+            best.append(ps[int(np.argmax(scores[position : position + len(ps)]))])
+            position += len(ps)
+        else:
+            best.append(None)
+    return best
 
 
 def _sentences(text: str, start: int, end: int):

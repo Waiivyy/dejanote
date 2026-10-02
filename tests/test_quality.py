@@ -8,7 +8,7 @@ import pytest
 
 from dejanote.evaluation import load_cases, run_case, score
 from dejanote.indexer import index_folder
-from dejanote.search import search
+from dejanote.search import best_passages, search
 from dejanote.store import Store
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "notes"
@@ -36,6 +36,15 @@ def example_index(tmp_path_factory, embedder):
 def test_an_obvious_query_finds_the_note_it_is_about(example_index, embedder, query, note):
     best = search(example_index, embedder, query)[0]
     assert Path(best.path).relative_to(EXAMPLES).as_posix() == note
+
+
+@pytest.mark.model
+def test_the_highlight_is_the_passage_that_answers_the_query(example_index, embedder):
+    # "Gratuity" appears nowhere in the note: the right line has to be found by meaning.
+    best = search(example_index, embedder, "is it rude to leave a gratuity")[0]
+    [passage] = best_passages(embedder, "is it rude to leave a gratuity", [best.chunk.text])
+    assert best.chunk.headings[-1] == "Etiquette I want to remember"
+    assert best.chunk.text[passage.start : passage.end] == "- no tipping anywhere; it comes across as awkward or even rude"
 
 
 @pytest.mark.model
