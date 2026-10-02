@@ -33,7 +33,7 @@ Then point it at your own notes with `dejanote index ~/path/to/notes`.
 
 ## Install
 
-Python 3.10 or newer. The dependencies, mostly PyTorch, take about 1 GB of disk, and the model another 135 MB.
+Python 3.10 or newer, on macOS or Linux (both tested in CI; Windows is untested). The dependencies, mostly PyTorch, take about 1 GB of disk, and the model another 135 MB.
 
 ```bash
 pip install git+https://github.com/Waiivyy/dejanote
@@ -222,6 +222,8 @@ Measured on an Apple Silicon laptop CPU with 3,016 notes (11,368 chunks):
 | one search | 3.9 s |
 
 The index for those 3,016 notes is 26 MB. Of a search's 3.9 seconds, embedding the query and ranking every chunk take about 50 ms; most of the rest is Python importing sentence-transformers and its dependencies, which happens on every run. Repeat index runs only read and hash files, and they load the model only when something changed.
+
+The very first command after installing takes about half a minute longer while Python compiles PyTorch's modules; from then on, commands start in a few seconds.
 
 ## Development
 
