@@ -30,6 +30,9 @@ class FakeEmbedder:
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         return vectors / np.where(norms == 0, 1, norms)
 
+    def embed_query(self, text: str) -> np.ndarray:
+        return self.embed_documents([text])[0]
+
     @property
     def embedded_texts(self) -> list[str]:
         return [text for batch in self.batches for text in batch]

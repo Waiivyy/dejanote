@@ -58,7 +58,8 @@ def run_case(store: Store, embedder: QueryEmbedder, notes_root: Path, case: Case
         note = Path(result.path).relative_to(notes_root).as_posix()
         if note not in notes:
             notes.append(note)
-        if section_rank is None and case.section and note == case.note and result.chunk.headings[-1] == case.section:
+        in_section = note == case.note and result.chunk.headings[-1] == case.section
+        if section_rank is None and case.section and in_section:
             section_rank = rank
     note_rank = notes.index(case.note) + 1 if case.note in notes else None
     return Outcome(case, note_rank, section_rank, top_note=notes[0] if notes else "")
