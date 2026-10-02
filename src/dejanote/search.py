@@ -141,6 +141,13 @@ def passages(text: str) -> list[Passage]:
     return found
 
 
+def passage_line(chunk: Chunk, passage: Passage | None) -> int:
+    """The line of the note a passage starts on; without a passage, the chunk's first line."""
+    if passage is None:
+        return chunk.start_line
+    return chunk.start_line + chunk.text.count("\n", 0, passage.start)
+
+
 def best_passages(embedder: PassageEmbedder, query: str, texts: list[str]) -> list[Passage | None]:
     """For each text, the passage closest in meaning to the query: the one worth highlighting.
 

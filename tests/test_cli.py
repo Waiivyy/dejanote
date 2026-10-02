@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from rich.console import Console
 from typer.testing import CliRunner
 from watchfiles import Change
 
@@ -318,3 +319,26 @@ def test_watch_summarises_large_batches_instead_of_listing_every_note(home_with_
     assert result.exit_code == 0, result.output
     assert "added 5 notes" in result.output
     assert "note-3.md" not in result.output
+
+
+SHIN_QUERY = "pain along the front of my lower legs after jogging"
+
+
+@pytest.mark.model
+def test_search_shows_the_matching_passage_even_deep_inside_a_long_section(home_with_model):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    result = runner.invoke(app, ["search", SHIN_QUERY, "--limit", "1"])
+    assert result.exit_code == 0, result.output
+    # The best passage is the section's last sentence; the snippet starts there instead of at the top.
+    assert "... If it hurts to walk, or one spot is very tender to touch" in result.output
+    assert "health/running-plan.md:22" in result.output  # the line of the match, not of the section
+
+
+@pytest.mark.model
+def test_search_highlights_the_matching_passage_in_a_terminal(home_with_model, monkeypatch):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    terminal = Console(force_terminal=True, color_system="standard", width=100, highlight=False, soft_wrap=True)
+    monkeypatch.setattr(cli, "console", terminal)
+    result = runner.invoke(app, ["search", SHIN_QUERY, "--limit", "1"])
+    assert result.exit_code == 0, result.output
+    assert "\x1b[1mIf it hurts to walk" in result.output  # bold starts exactly at the matching sentence

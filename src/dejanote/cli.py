@@ -13,6 +13,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
+from rich.text import Text
 
 from dejanote import __version__, config
 from dejanote.display import plural, short_path
@@ -29,7 +30,7 @@ from dejanote.embedding import (
 )
 from dejanote.indexer import IndexReport, index_folder
 from dejanote.privacy import NetworkGuard, block_network
-from dejanote.search import SearchResult, search, snippet
+from dejanote.search import Passage, SearchResult, best_passages, passage_line, search, snippet_lines
 from dejanote.store import IndexMismatchError, Store
 
 app = typer.Typer(
@@ -38,6 +39,7 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console(highlight=False, soft_wrap=True)
+HIGHLIGHT = "bold"  # the passage that best matches the query; plain bold reads on light and dark themes
 
 
 def _print_version(value: bool) -> None:
@@ -172,8 +174,9 @@ def search_notes(
             raise typer.Exit(1)
         with _open_index(embedder) as store:
             results = search(store, embedder, query, limit=limit)
+        highlights = best_passages(embedder, query, [result.chunk.text for result in results])
     if results:
-        _print_results(results)
+        _print_results(results, highlights)
     else:
         console.print("The index is empty. Run `dejanote index <folder>` to add notes.", markup=False)
     _report_network(guard)
@@ -324,16 +327,18 @@ def verify() -> None:
     )
 
 
-def _print_results(results: list[SearchResult]) -> None:
+def _print_results(results: list[SearchResult], highlights: list[Passage | None]) -> None:
     indent = " " * 6
     width = max(40, console.width)
-    for result in results:
-        location = f"{short_path(Path(result.path))}:{result.chunk.start_line}"
+    for result, highlight in zip(results, highlights):
+        location = f"{short_path(Path(result.path))}:{passage_line(result.chunk, highlight)}"
         console.print(f"[bold]{result.score:.2f}[/]  [cyan]{escape(location)}[/]")
         console.print(f"{indent}[dim]{escape(' > '.join(result.chunk.headings))}[/]")
-        for line in snippet(result.chunk.text).split("\n"):
-            wrapped = textwrap.fill(line, width=width, initial_indent=indent, subsequent_indent=indent)
-            console.print(wrapped, markup=False)
+        for line in snippet_lines(result.chunk.text, focus=highlight):
+            text = Text.assemble(*((part, HIGHLIGHT if is_focus else "") for part, is_focus in line))
+            for wrapped in text.wrap(console, width - len(indent)):
+                wrapped.rstrip()  # in place: no trailing spaces when output is piped
+                console.print(Text(indent) + wrapped)
         if result.also:
             # A note's untitled opening only carries the note's own title, so call it the intro.
             others = ", ".join(

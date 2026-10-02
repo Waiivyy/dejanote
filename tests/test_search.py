@@ -7,7 +7,7 @@ import pytest
 
 from conftest import FakeEmbedder
 from dejanote.chunking import Chunk
-from dejanote.search import best_passages, passages, rank_chunks, search, snippet, snippet_lines
+from dejanote.search import best_passages, passage_line, passages, rank_chunks, search, snippet, snippet_lines
 from dejanote.store import Store
 
 
@@ -134,6 +134,13 @@ def test_a_snippet_starts_at_a_focus_that_would_otherwise_be_cut_off():
     assert line[0] == ("... ", False)
     assert line[1] == ("The sentence that matched is here.", True)
     assert sum(len(part) for part, _ in line) <= 80
+
+
+def test_a_passage_knows_which_line_of_the_note_it_starts_on():
+    chunk = Chunk("First paragraph.\n\nSecond one.\nStill second. Third sentence.", ("n",), 10, 13)
+    assert passage_line(chunk, _focus(chunk.text, "Third sentence.")) == 13
+    assert passage_line(chunk, _focus(chunk.text, "Second one.")) == 12
+    assert passage_line(chunk, None) == 10  # no passage: the section's first line
 
 
 def test_the_passage_to_highlight_is_the_one_closest_to_the_query():
