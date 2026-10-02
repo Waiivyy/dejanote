@@ -91,6 +91,13 @@ def test_a_code_block_with_blank_lines_stays_in_one_piece():
     ]
 
 
+def test_chunk_text_keeps_the_notes_blank_lines_so_line_numbers_can_be_counted():
+    note = "## S\n\nfirst paragraph\n\n\n\nsecond paragraph\n"
+    [chunk] = chunk_note(note, "n.md")
+    assert chunk.text == "first paragraph\n\n\n\nsecond paragraph"
+    assert (chunk.start_line, chunk.end_line) == (3, 7)
+
+
 def test_small_paragraphs_in_a_section_are_packed_together():
     note = "## S\n\none two three\n\nfour five\n\nsix\n"
     assert chunk_note(note, "n.md", max_words=100) == [

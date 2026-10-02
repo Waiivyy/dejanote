@@ -22,7 +22,7 @@ MAX_WORDS = 150
 
 # Bump whenever chunk boundaries or chunk text change. The index records it, so
 # existing indexes get rebuilt instead of keeping chunks made by the old rules.
-CHUNKER_VERSION = 1
+CHUNKER_VERSION = 2
 
 MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
 
@@ -216,14 +216,23 @@ def _pack(pieces: list[_Piece], max_words: int) -> list[list[_Piece]]:
 
 
 def _assemble(group: list[_Piece], blocks: list[_Block], headings: tuple[str, ...]) -> Chunk:
-    """Rebuild a chunk's text from the original source, keeping its exact formatting."""
-    parts = []
+    """Rebuild a chunk's text from the original source, keeping its exact formatting.
+
+    Blocks are separated by as many newlines as the note has between them, so
+    the n-th line of the chunk is always line start_line + n of the note.
+    """
+    text = ""
+    previous_end_line = None
     for block_index, run in itertools.groupby(group, key=lambda piece: piece.block):
         run = list(run)
-        parts.append(blocks[block_index].text[run[0].start : run[-1].end])
+        block = blocks[block_index]
+        if previous_end_line is not None:
+            text += "\n" * (_line_of(block, run[0].start) - previous_end_line)
+        text += block.text[run[0].start : run[-1].end]
+        previous_end_line = _line_of(block, run[-1].end)
     first, last = group[0], group[-1]
     return Chunk(
-        text="\n\n".join(parts),
+        text=text,
         headings=headings,
         start_line=_line_of(blocks[first.block], first.start),
         end_line=_line_of(blocks[last.block], last.end),
