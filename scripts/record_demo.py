@@ -1,13 +1,14 @@
-"""Record the README demo: real dejanote commands on the example notes, saved as an SVG terminal.
+"""Record the README demos: real dejanote commands and the browser on the example notes, as SVG terminals.
 
 Runs in a throwaway home folder with the model linked in, so it starts from an
 empty index and never touches your own. Needs `dejanote setup` to have run.
 
-    python scripts/record_demo.py      # writes docs/demo.svg and prints the same output as text
+    python scripts/record_demo.py      # writes docs/demo.svg and docs/browse.svg
 """
 
 from __future__ import annotations
 
+import asyncio
 import io
 import os
 import re
@@ -24,6 +25,7 @@ COMMANDS = [
     "dejanote index examples/notes",
     'dejanote search "felt burned out and needed a break" --limit 3',
 ]
+BROWSE_QUERY = "the heating stopped and the gauge is low"
 
 
 def main() -> None:
@@ -46,12 +48,39 @@ def main() -> None:
             if result.exit_code != 0:
                 raise SystemExit(f"{command!r} failed:\n{result.output}")
             recording.print()
+        browse_svg = _record_browser()  # uses the index the commands above just built
 
     text = recording.export_text(clear=False)
     svg = _without_remote_fonts(recording.export_svg(title="dejanote"))
     (ROOT / "docs").mkdir(exist_ok=True)
     (ROOT / "docs" / "demo.svg").write_text(svg)
+    (ROOT / "docs" / "browse.svg").write_text(_without_remote_fonts(browse_svg))
     print(text)
+
+
+def _record_browser() -> str:
+    """The interactive browser after typing a query, as an SVG."""
+    from dejanote import config
+    from dejanote.embedding import Embedder
+    from dejanote.store import Store
+    from dejanote.tui import BrowseApp
+
+    embedder = Embedder()
+    with Store(config.index_path(), embedder.model_id, embedder.dimension) as store:
+        index = store.snapshot()
+    app = BrowseApp(index, embedder, debounce=0.05)
+
+    async def session() -> str:
+        async with app.run_test(size=(118, 30)) as pilot:
+            await pilot.pause(0.5)
+            await app.workers.wait_for_complete()  # the model has loaded
+            await pilot.press(*BROWSE_QUERY)
+            await pilot.pause(0.3)
+            await app.workers.wait_for_complete()  # the search has run
+            await pilot.pause()
+            return app.export_screenshot(title="dejanote browse")
+
+    return asyncio.run(session())
 
 
 def _without_remote_fonts(svg: str) -> str:

@@ -29,7 +29,7 @@ dejanote index examples/notes
 dejanote search "felt burned out and needed a break"
 ```
 
-Then point it at your own notes with `dejanote index ~/path/to/notes`.
+Then point it at your own notes with `dejanote index ~/path/to/notes`, and try `dejanote browse` to search as you type.
 
 ## Install
 
@@ -104,6 +104,14 @@ No network connections were attempted.
 
 Scores are cosine similarities. With the default model, around 0.7 and above is a strong match, while unrelated text still scores around 0.4 to 0.5, so compare scores with each other rather than reading them as percentages.
 
+### `dejanote browse [QUERY]`
+
+Searches as you type. The model loads once when the browser opens (a few seconds), and from then on results update within a fraction of a second of each keystroke. Arrow keys move through the results and the preview follows; Enter opens the note in `$VISUAL` or `$EDITOR` at the matching line, and Escape quits.
+
+![dejanote browse showing the boiler note as the best match for "the heating stopped and the gauge is low", with the matching section previewed](docs/browse.svg)
+
+Without an editor configured, Enter quits and prints the note's `path:line`, so the browser also works as a picker in scripts. The status line keeps the same network receipt as every other command.
+
 ### `dejanote verify`
 
 Checks your installation: every model file against its pinned hash, then a full index and search of sample notes in a throwaway index with the network blocked. It exits with an error if anything tried to connect, which makes it usable in scripts.
@@ -138,7 +146,9 @@ Behind a corporate proxy that inspects TLS, `setup` checks certificates against 
 
 1. **Offline mode.** Every other command switches the Hugging Face libraries to offline mode before they load.
 2. **A network guard.** Outbound connections, UDP sends and DNS lookups from the dejanote process are blocked and recorded. Local Unix sockets stay allowed.
-3. **A receipt.** Every `index` and `search` run ends with `No network connections were attempted.`, or with a warning that lists exactly what was blocked. Nothing gets out either way.
+3. **A receipt.** Every `index` and `search` run ends with `No network connections were attempted.`, or with a warning that lists exactly what was blocked, and `browse` shows the same in its status line. Nothing gets out either way.
+
+When `browse` opens a note in your editor, the editor is a separate program, so what it does is up to the editor.
 
 The guard lives inside Python. Native code or a child process could in principle get past it, which is why you should not have to take dejanote's word for it.
 
@@ -223,6 +233,8 @@ Measured on an Apple Silicon laptop CPU with 3,016 notes (11,368 chunks):
 
 The index for those 3,016 notes is 26 MB. Of a search's 3.9 seconds, embedding the query and ranking every chunk take about 50 ms; most of the rest is Python importing sentence-transformers and its dependencies, which happens on every run. Repeat index runs only read and hash files, and they load the model only when something changed.
 
+In `dejanote browse` the model loads once, in about 4 seconds, and from then on results appear within about 0.2 seconds of typing, debounce included.
+
 The very first command after installing takes about half a minute longer while Python compiles PyTorch's modules; from then on, commands start in a few seconds.
 
 ## Development
@@ -239,7 +251,9 @@ Set `DEJANOTE_REQUIRE_MODEL=1` to turn those skips into failures, as CI does. To
 
 ```
 src/dejanote/
-  cli.py          the setup, index, search and verify commands
+  cli.py          the setup, index, search, browse and verify commands
+  tui.py          the interactive browser
+  editor.py       opens a note in $VISUAL or $EDITOR at a line
   indexer.py      finds notes, skips unchanged ones, batches embeddings
   chunking.py     splits notes into sections, paragraphs and sentences
   embedding.py    pinned model download and offline embedding
@@ -248,6 +262,7 @@ src/dejanote/
   privacy.py      offline mode and the network guard
   evaluation.py   search quality scores
   config.py       where files live
+  display.py      how paths and counts are written
 scripts/          evaluate.py (model comparison), record_demo.py (README image)
 examples/         notes/ (26 example notes), queries.json (evaluation queries)
 ```
@@ -255,7 +270,7 @@ examples/         notes/ (26 example notes), queries.json (evaluation queries)
 ## Limitations and next steps
 
 - The default model is trained on English text.
-- Each search loads the model, about 4 seconds in total. An interactive mode that loads it once, and a watch mode that reindexes on save, are next.
+- `dejanote search` loads the model on every run, about 4 seconds in total; `dejanote browse` loads it once for any number of searches. A watch mode that reindexes on save is next.
 - Moving or renaming a note re-embeds it, because the index is keyed by path.
 - Only Markdown and plain text; no PDFs or other formats.
 
