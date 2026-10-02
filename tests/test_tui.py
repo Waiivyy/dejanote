@@ -7,6 +7,7 @@ import html
 from pathlib import Path
 
 import pytest
+from textual.widgets import OptionList
 
 from conftest import FakeEmbedder
 from dejanote.indexer import index_folder
@@ -18,10 +19,10 @@ EXAMPLES = Path(__file__).parent.parent / "examples" / "notes"
 
 # With the fake embedder, similarity is word overlap, so these rank predictably.
 NOTES = {
-    "boiler.md": "# Boiler\n\n## Pressure\n\nboiler pressure gauge low, top up with the filling loop\n\n"
+    "home/boiler.md": "# Boiler\n\n## Pressure\n\nboiler pressure gauge low, top up with the filling loop\n\n"
     "## Radiators\n\nbleed the radiators with the key in the drawer\n",
-    "sourdough.md": "# Sourdough\n\nfeed the sourdough starter flour and water\n",
-    "japan.md": "# Japan\n\nput a suica card in the phone for trains in tokyo\n",
+    "cooking/sourdough.md": "# Sourdough\n\nfeed the sourdough starter flour and water\n",
+    "travel/japan.md": "# Japan\n\nput a suica card in the phone for trains in tokyo\n",
 }
 
 
@@ -30,6 +31,7 @@ def snapshot(tmp_path):
     notes = tmp_path / "notes"
     notes.mkdir()
     for name, text in NOTES.items():
+        (notes / name).parent.mkdir(parents=True, exist_ok=True)
         (notes / name).write_text(text)
     embedder = FakeEmbedder()
     with Store(tmp_path / "index.db", embedder.model_id, embedder.dimension) as store:
@@ -158,6 +160,53 @@ def test_blocked_network_attempts_show_in_the_status_line(snapshot):
         await pilot.press(*"boiler")
         await settle(pilot)
         assert "1 network attempt blocked" in on_screen(app)
+
+    run(app, script)
+
+
+def test_paths_are_shown_relative_to_the_notes_folder(snapshot, tmp_path):
+    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+
+    async def script(pilot):
+        await pilot.press(*"boiler pressure")
+        await settle(pilot)
+        # The entry's own text, since wrapping on screen could hide a long prefix.
+        entry = app.query_one(OptionList).get_option_at_index(0).prompt.plain
+        assert entry.split("\n")[0].endswith("  home/boiler.md:5")
+        assert str(tmp_path) not in entry  # no long absolute prefix crowding the list
+
+    run(app, script)
+
+
+def test_each_result_takes_exactly_two_lines_however_long_its_heading(tmp_path):
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    long_heading = "a heading that goes on and on " * 6
+    (notes / "long.md").write_text(f"# {long_heading}\n\nboiler pressure gauge\n")
+    (notes / "short.md").write_text("# Short\n\nboiler notes\n")
+    embedder = FakeEmbedder()
+    with Store(tmp_path / "index.db", embedder.model_id, embedder.dimension) as store:
+        index_folder(notes, store, embedder)
+        index = store.snapshot()
+    app = BrowseApp(index, embedder, debounce=0.05)
+
+    async def script(pilot):
+        await pilot.press(*"boiler pressure")
+        await settle(pilot)
+        options = app.query_one(OptionList)
+        assert options.option_count == 2
+        assert options.virtual_size.height == 4  # cut with an ellipsis, never wrapped
+
+    run(app, script)
+
+
+def test_the_command_palette_is_off(snapshot):
+    # Textual's palette offers actions such as saving screenshots; the browser has one job.
+    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+
+    async def script(pilot):
+        await settle(pilot)
+        assert "palette" not in on_screen(app)
 
     run(app, script)
 

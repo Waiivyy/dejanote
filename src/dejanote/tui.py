@@ -7,6 +7,7 @@ seconds a one-off `dejanote search` spends starting up.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import threading
 from collections.abc import Callable
@@ -43,10 +44,11 @@ class BrowseApp(App[str | None]):
     """
 
     TITLE = "dejanote"
+    ENABLE_COMMAND_PALETTE = False  # its extras, such as saving screenshots, are not needed here
     CSS = """
     #query { margin-bottom: 1; }
     #body { height: 1fr; }
-    #results { width: 2fr; border: none; }
+    #results { width: 2fr; border: none; text-wrap: nowrap; text-overflow: ellipsis; }
     #preview-pane { width: 3fr; padding: 0 1; border-left: solid $panel-lighten-2; }
     #status { height: 1; padding: 0 1; color: $text-muted; }
     """
@@ -71,6 +73,7 @@ class BrowseApp(App[str | None]):
     ):
         super().__init__()
         self.index = index
+        self.root = _common_folder(index.paths())  # paths are shown relative to it
         self.embedder = embedder
         self.initial_query = query
         self.guard = guard or NetworkGuard()
@@ -140,7 +143,7 @@ class BrowseApp(App[str | None]):
         self.results = results
         options = self.query_one(OptionList)
         options.clear_options()
-        options.add_options([Option(_result_line(result)) for result in results])
+        options.add_options([Option(_result_line(result, self.root)) for result in results])
         if results:
             options.highlighted = 0
         self._preview(results[0] if results else None)
@@ -173,7 +176,7 @@ class BrowseApp(App[str | None]):
 
     def _preview(self, result: SearchResult | None) -> None:
         self.selected = result
-        self.query_one("#preview", Static).update(_preview(result) if result else "")
+        self.query_one("#preview", Static).update(_preview(result, self.root) if result else "")
         self.query_one("#preview-pane", VerticalScroll).scroll_home(animate=False)
 
     def _refresh_status(self) -> None:
@@ -187,22 +190,34 @@ class BrowseApp(App[str | None]):
         self.query_one("#status", Static).update(status)
 
 
-def _result_line(result: SearchResult) -> Text:
-    line = Text()
+def _common_folder(paths: list[str]) -> Path | None:
+    """The deepest folder that holds every note, or None for an empty index."""
+    if not paths:
+        return None
+    return Path(os.path.commonpath([str(Path(path).parent) for path in paths]))
+
+
+def _relative(path: str, root: Path | None) -> str:
+    return Path(path).relative_to(root).as_posix() if root else short_path(Path(path))
+
+
+def _result_line(result: SearchResult, root: Path | None) -> Text:
+    """Two lines per result, cut with an ellipsis rather than wrapped, so the list stays scannable."""
+    line = Text(no_wrap=True, overflow="ellipsis")
     line.append(f"{result.score:.2f}  ", style="bold")
-    line.append(f"{short_path(Path(result.path))}:{result.chunk.start_line}", style="cyan")
+    line.append(f"{_relative(result.path, root)}:{result.chunk.start_line}", style="cyan")
     line.append("\n      " + " > ".join(result.chunk.headings), style="dim")
     return line
 
 
-def _preview(result: SearchResult) -> RenderableType:
+def _preview(result: SearchResult, root: Path | None) -> RenderableType:
     chunk = result.chunk
     if chunk.start_line == chunk.end_line:
         lines = f"line {chunk.start_line}"
     else:
         lines = f"lines {chunk.start_line}-{chunk.end_line}"
     parts: list[RenderableType] = [
-        Text(f"{short_path(Path(result.path))}, {lines}", style="bold cyan"),
+        Text(f"{_relative(result.path, root)}, {lines}", style="bold cyan"),
         Text(" > ".join(chunk.headings), style="dim"),
         Text(""),
     ]

@@ -207,6 +207,10 @@ class IndexSnapshot:
     def counts(self) -> tuple[int, int]:
         return self._files, len(self._ids)
 
+    def paths(self) -> list[str]:
+        """Every note that has at least one chunk, sorted."""
+        return sorted({hit.path for hit in self._chunks.values()})
+
 
 def _describe(meta: dict[str, str]) -> str:
     return (
