@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dejanote"
+dynamic = ["version"]
+description = "Search your notes by meaning, entirely offline."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Waiivyy" }]
+keywords = ["semantic-search", "embeddings", "notes", "markdown", "offline", "privacy", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Indexing",
+]
+dependencies = [
+    "sentence-transformers>=3.0",
+    "huggingface-hub>=0.23",
+    "numpy>=1.24",
+    "typer>=0.12",
+    "rich>=13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+dejanote = "dejanote.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/Waiivyy/dejanote"
+Issues = "https://github.com/Waiivyy/dejanote/issues"
+
+[tool.hatch.version]
+path = "src/dejanote/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dejanote"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "model: needs the embedding model on disk (run `dejanote setup` once)",
+]
