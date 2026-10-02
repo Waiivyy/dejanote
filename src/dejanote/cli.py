@@ -218,7 +218,7 @@ def watch(
     """Keep the index current while you edit: notes are reindexed as soon as they change.
 
     Runs fully offline until you press Ctrl+C. The model stays loaded, so each
-    change is searchable within a second of saving.
+    change is searchable within a second or two of saving.
     """
     from dejanote.watcher import watch_folder  # watchfiles is only imported for this command
 
