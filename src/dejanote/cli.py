@@ -99,26 +99,44 @@ def index(
         help="Folder of notes to index. Subfolders are included.",
     ),
 ) -> None:
-    """Index a folder of Markdown and text notes. Runs fully offline."""
+    """Index a folder of Markdown and text notes. Runs fully offline.
+
+    Only new and changed notes are embedded, so running it again is cheap.
+    """
     started = time.perf_counter()
     with block_network() as guard:
         embedder = _load_embedder()
-        with _open_index(embedder) as store, _progress() as progress:
-            task = progress.add_task("Indexing", total=None)
-            report = index_folder(
-                folder,
-                store,
-                embedder,
-                on_progress=lambda done, total, _path: progress.update(task, completed=done, total=total),
-            )
+        with _open_index(embedder, rebuild_if_incompatible=True) as store:
+            if store.rebuilt:
+                console.print(
+                    "[yellow]The index was made with a different model or chunking version, "
+                    "so it is being rebuilt from scratch.[/]"
+                )
+            with _progress() as progress:
+                task = progress.add_task("Indexing", total=None)
+                report = index_folder(
+                    folder,
+                    store,
+                    embedder,
+                    on_progress=lambda done, total, _path: progress.update(task, completed=done, total=total),
+                )
     elapsed = time.perf_counter() - started
 
-    console.print(
-        f"Indexed {_plural(report.notes, 'note')} from {escape(_display(folder))} "
-        f"into {_plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
+    changes = ", ".join(
+        f"{count} {label}"
+        for count, label in ((report.added, "new"), (report.updated, "changed"), (report.unchanged, "unchanged"))
+        if count
     )
+    summary = f"Indexed {_plural(report.notes, 'note')} from {escape(_display(folder))}"
+    summary += f" ({changes})." if changes else "."
+    if report.chunks:
+        summary += f" Embedded {_plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
+    else:
+        summary += f" Nothing new to embed ({elapsed:.1f}s)."
+    console.print(summary)
     if report.removed:
-        console.print(f"Removed {_plural(report.removed, 'note')} that no longer exist.")
+        verb = "exists" if report.removed == 1 else "exist"
+        console.print(f"Removed {_plural(report.removed, 'note')} that no longer {verb}.")
     if report.skipped:
         console.print(f"[yellow]Skipped {_plural(len(report.skipped), 'file')}:[/]")
         for path, reason in report.skipped:
@@ -135,9 +153,14 @@ def _load_embedder() -> Embedder:
         raise typer.Exit(1) from None
 
 
-def _open_index(embedder: Embedder) -> Store:
+def _open_index(embedder: Embedder, rebuild_if_incompatible: bool = False) -> Store:
     try:
-        return Store(config.index_path(), embedder.model_id, embedder.dimension)
+        return Store(
+            config.index_path(),
+            embedder.model_id,
+            embedder.dimension,
+            rebuild_if_incompatible=rebuild_if_incompatible,
+        )
     except IndexMismatchError as err:
         console.print(str(err), style="red", markup=False)
         raise typer.Exit(1) from None

@@ -5,16 +5,20 @@ from __future__ import annotations
 import socket
 from pathlib import Path
 
+import numpy as np
 import pytest
 from typer.testing import CliRunner
 
 from dejanote import cli
 from dejanote.cli import app
+from dejanote.embedding import DEFAULT_MODEL
 from dejanote.privacy import block_network
+from dejanote.store import Store
 
 runner = CliRunner()
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "notes"
+EXAMPLE_COUNT = len(list(EXAMPLES.rglob("*.md"))) + len(list(EXAMPLES.rglob("*.txt")))
 
 
 @pytest.fixture
@@ -59,15 +63,41 @@ def test_index_without_the_model_explains_how_to_get_it(home, tmp_path):
 
 @pytest.mark.model
 def test_index_builds_the_index_offline_and_says_so(home_with_model):
-    expected_files = len(list(EXAMPLES.rglob("*.md"))) + len(list(EXAMPLES.rglob("*.txt")))
     with block_network() as guard:
         result = runner.invoke(app, ["index", str(EXAMPLES)])
     assert result.exit_code == 0, result.output
     assert guard.attempts == []
     assert (home_with_model / "index.db").is_file()
-    assert f"{expected_files} notes" in result.output
+    assert f"{EXAMPLE_COUNT} notes" in result.output
     assert "no network" in result.output.lower()
     assert result.output.startswith("Indexed")  # no progress-bar residue when output is not a terminal
+
+
+@pytest.mark.model
+def test_a_reindex_with_nothing_changed_does_not_even_load_the_model(home_with_model):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    # Swap the real model for files that cannot load: from now on any attempt to load it fails.
+    model = home_with_model / "models" / DEFAULT_MODEL.name
+    model.unlink()
+    for name in DEFAULT_MODEL.files:
+        (model / name).parent.mkdir(parents=True, exist_ok=True)
+        (model / name).write_text("not a model")
+    result = runner.invoke(app, ["index", str(EXAMPLES)])
+    assert result.exit_code == 0, result.output
+    assert f"{EXAMPLE_COUNT} unchanged" in result.output
+
+
+@pytest.mark.model
+def test_index_rebuilds_an_index_made_by_an_older_chunker(home_with_model):
+    stale = Store(home_with_model / "index.db", DEFAULT_MODEL.model_id, DEFAULT_MODEL.dimension, chunker_version=0)
+    stale.replace_file("/old/chunking/rules.md", "hash", [], np.empty((0, DEFAULT_MODEL.dimension)))
+    stale.close()
+    result = runner.invoke(app, ["index", str(EXAMPLES)])
+    assert result.exit_code == 0, result.output
+    assert "rebuilt" in result.output.lower()
+    with Store(home_with_model / "index.db", DEFAULT_MODEL.model_id, DEFAULT_MODEL.dimension) as store:
+        assert "/old/chunking/rules.md" not in store.file_hashes()
+        assert store.counts()[0] == EXAMPLE_COUNT
 
 
 @pytest.mark.model
