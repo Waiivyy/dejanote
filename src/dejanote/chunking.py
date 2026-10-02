@@ -27,7 +27,7 @@ MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
-_LINE_ITEM = re.compile(r"^\s*(?:(?:[-*+]|\d+[.)])\s|\|)")
+LINE_ITEM = re.compile(r"^\s*(?:(?:[-*+]|\d+[.)])\s|\|)")
 _SENTENCE_GAP = re.compile(r"(?<=[.!?])\s+")
 _LINE_BREAK = re.compile(r"\n")
 _WORD = re.compile(r"\S+")
@@ -94,7 +94,7 @@ def _parse(lines: list[str], markdown: bool) -> list[_Heading | _Block]:
 
     def flush(code: bool = False) -> None:
         if paragraph:
-            split_by_line = code or _LINE_ITEM.match(paragraph[0]) is not None
+            split_by_line = code or LINE_ITEM.match(paragraph[0]) is not None
             items.append(_Block("\n".join(paragraph), start, split_by_line))
             paragraph.clear()
 

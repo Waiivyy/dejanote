@@ -55,8 +55,14 @@ def test_an_empty_index_has_no_results(store):
     assert search(store, FixedQuery([1.0, 0.0, 0.0]), "anything") == []
 
 
-def test_snippets_collapse_whitespace():
-    assert snippet("Grey liquid\non top   means\n\nit is hungry.") == "Grey liquid on top means it is hungry."
+def test_snippets_join_hard_wrapped_prose_into_one_line_per_paragraph():
+    text = "Grey liquid\non top   means\nit is hungry.\n\nPour it off."
+    assert snippet(text) == "Grey liquid on top means it is hungry.\nPour it off."
+
+
+def test_snippets_keep_list_items_on_their_own_lines():
+    text = "Signs:\n- doubled in size\n- smells tangy\n  like yoghurt\n- floats"
+    assert snippet(text) == "Signs:\n- doubled in size\n- smells tangy like yoghurt\n- floats"
 
 
 def test_snippets_cut_long_text_at_a_word_boundary_and_say_so():
@@ -67,7 +73,6 @@ def test_snippets_cut_long_text_at_a_word_boundary_and_say_so():
     assert cut[:-3].split() == ["word"] * len(cut[:-3].split())  # no word cut in half
 
 
-def test_snippets_leave_out_code_fence_markers():
-    assert snippet("Keep the changes staged:\n\n```bash\ngit reset --soft HEAD~1\n```") == (
-        "Keep the changes staged: git reset --soft HEAD~1"
-    )
+def test_snippets_keep_code_lines_apart_and_leave_out_fence_markers():
+    text = "Keep the changes staged:\n\n```bash\ngit reset --soft HEAD~1\ngit status\n```"
+    assert snippet(text) == "Keep the changes staged:\ngit reset --soft HEAD~1\ngit status"

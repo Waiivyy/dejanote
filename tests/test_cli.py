@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import socket
 from pathlib import Path
 
@@ -129,3 +130,43 @@ def test_index_warns_when_something_tries_the_network(home_with_model, monkeypat
     assert "blocked" in result.output.lower()
     assert "telemetry.example.com" in result.output
     assert outer_guard.attempts == []  # the command's own guard caught it first
+
+
+@pytest.mark.model
+def test_search_without_an_index_says_how_to_build_one_and_creates_nothing(home_with_model):
+    with block_network() as guard:
+        result = runner.invoke(app, ["search", "anything"])
+    assert result.exit_code == 1
+    assert "dejanote index" in result.output
+    assert not (home_with_model / "index.db").exists()
+    assert guard.attempts == []
+
+
+@pytest.mark.model
+def test_search_finds_the_relevant_note_and_shows_where_it_is(home_with_model):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    with block_network() as guard:
+        result = runner.invoke(app, ["search", "my bread starter smells like nail polish"])
+    assert result.exit_code == 0, result.output
+    first = result.output.split("\n\n")[0]
+    assert re.search(r"cooking/sourdough-starter\.md:\d+", first)
+    assert "When it goes wrong" in first
+    assert guard.attempts == []
+    assert "no network" in result.output.lower()
+    assert not [line for line in result.output.splitlines() if line.endswith(" ")]  # clean when piped
+
+
+@pytest.mark.model
+def test_search_shows_as_many_results_as_asked_for(home_with_model):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    result = runner.invoke(app, ["search", "cooking dinner", "--limit", "3"])
+    assert result.exit_code == 0, result.output
+    assert len(re.findall(r"^-?\d\.\d\d  \S+:\d+$", result.output, flags=re.MULTILINE)) == 3
+
+
+@pytest.mark.model
+def test_search_on_an_index_built_for_another_model_says_to_reindex(home_with_model):
+    Store(home_with_model / "index.db", "some-other-model@1", DEFAULT_MODEL.dimension).close()
+    result = runner.invoke(app, ["search", "anything"])
+    assert result.exit_code == 1
+    assert "dejanote index" in result.output

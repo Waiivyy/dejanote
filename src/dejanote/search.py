@@ -8,10 +8,10 @@ from typing import Protocol
 
 import numpy as np
 
-from dejanote.chunking import Chunk
+from dejanote.chunking import LINE_ITEM, Chunk
 from dejanote.store import Store
 
-_FENCE_LINE = re.compile(r"^\s*(```|~~~).*$", re.MULTILINE)
+_FENCE = re.compile(r"^(```|~~~)")
 
 
 class QueryEmbedder(Protocol):
@@ -50,11 +50,32 @@ def _top(scores: np.ndarray, k: int) -> np.ndarray:
 
 
 def snippet(text: str, max_chars: int = 240) -> str:
-    """A chunk's text on one line, without code fence markers, cut at a word boundary if too long."""
-    flat = " ".join(_FENCE_LINE.sub("", text).split())
-    if len(flat) <= max_chars:
-        return flat
-    cut = flat[: max_chars - 3]
-    if " " in cut:
-        cut = cut[: cut.rindex(" ")]
-    return cut + "..."
+    """A chunk's text condensed for display, one line per paragraph, list item or line of code.
+
+    Hard-wrapped prose is joined up, blank lines and code fence markers are
+    dropped, and anything past max_chars is cut at a word boundary with "...".
+    """
+    lines: list[str] = []
+    in_code = False
+    starts_new_line = True
+    for raw in text.split("\n"):
+        line = " ".join(raw.split())
+        if _FENCE.match(line):
+            in_code = not in_code
+            starts_new_line = True
+        elif not line:
+            starts_new_line = True
+        elif starts_new_line or in_code or LINE_ITEM.match(raw):
+            lines.append(line)
+            starts_new_line = False
+        else:
+            lines[-1] += " " + line
+    return _cut("\n".join(lines), max_chars)
+
+
+def _cut(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    cut = text[: max_chars - 3]
+    boundary = max(cut.rfind(" "), cut.rfind("\n"))
+    return (cut[:boundary] if boundary > 0 else cut) + "..."

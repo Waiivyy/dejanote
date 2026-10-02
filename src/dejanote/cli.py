@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 import time
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from dejanote.embedding import (
 )
 from dejanote.indexer import index_folder
 from dejanote.privacy import NetworkGuard, block_network
+from dejanote.search import SearchResult, search, snippet
 from dejanote.store import IndexMismatchError, Store
 
 app = typer.Typer(
@@ -145,6 +147,42 @@ def index(
             console.print(f"  {escape(_display(Path(path)))} ({escape(reason)})")
     console.print(f"Index: {escape(_display(config.index_path()))}")
     _report_network(guard)
+
+
+@app.command("search")
+def search_notes(
+    query: str = typer.Argument(..., help="What you are looking for, in your own words."),
+    limit: int = typer.Option(5, "--limit", "-n", min=1, help="How many results to show."),
+) -> None:
+    """Search your indexed notes by meaning. Runs fully offline."""
+    if not query.strip():
+        console.print("[red]Give something to search for.[/]")
+        raise typer.Exit(1)
+    with block_network() as guard:
+        embedder = _load_embedder()
+        if not config.index_path().exists():
+            console.print("There is no index yet. Run `dejanote index <folder>` first.", markup=False)
+            raise typer.Exit(1)
+        with _open_index(embedder) as store:
+            results = search(store, embedder, query, limit=limit)
+    if results:
+        _print_results(results)
+    else:
+        console.print("The index is empty. Run `dejanote index <folder>` to add notes.", markup=False)
+    _report_network(guard)
+
+
+def _print_results(results: list[SearchResult]) -> None:
+    indent = " " * 6
+    width = max(40, console.width)
+    for result in results:
+        location = f"{_display(Path(result.path))}:{result.chunk.start_line}"
+        console.print(f"[bold]{result.score:.2f}[/]  [cyan]{escape(location)}[/]")
+        console.print(f"{indent}[dim]{escape(' > '.join(result.chunk.headings))}[/]")
+        for line in snippet(result.chunk.text).split("\n"):
+            wrapped = textwrap.fill(line, width=width, initial_indent=indent, subsequent_indent=indent)
+            console.print(wrapped, markup=False)
+        console.print()
 
 
 def _load_embedder() -> Embedder:
