@@ -23,10 +23,17 @@ class DocumentEmbedder(Protocol):
 
 @dataclass
 class IndexReport:
-    indexed: int = 0  # files chunked, embedded and stored this run
+    added: int = 0  # new notes, chunked, embedded and stored
+    updated: int = 0  # notes whose content changed, embedded again
+    unchanged: int = 0  # notes whose content hash matched, left exactly as they were
+    removed: int = 0  # notes dropped from the index because they were deleted
     chunks: int = 0  # chunks embedded this run
-    removed: int = 0  # files dropped from the index because they no longer exist
     skipped: list[tuple[str, str]] = field(default_factory=list)  # (path, reason)
+
+    @property
+    def notes(self) -> int:
+        """Notes from the folder that are in the index after this run."""
+        return self.added + self.updated + self.unchanged
 
 
 def find_notes(root: Path) -> list[Path]:
@@ -46,36 +53,57 @@ def index_folder(
     embedder: DocumentEmbedder,
     on_progress: Callable[[int, int, Path], None] | None = None,
 ) -> IndexReport:
-    """Index every note under root and drop notes under root that no longer exist.
+    """Bring the index up to date with the notes under root.
 
-    Notes indexed from other folders are left alone.
+    A note is only chunked and embedded when it is new or its content hash has
+    changed, so a repeat run over an unchanged folder embeds nothing. Notes
+    under root that were deleted or are no longer readable text are dropped;
+    notes indexed from other folders are left alone.
     """
     root = root.resolve()
     report = IndexReport()
     notes = find_notes(root)
+    previous = {path: digest for path, digest in store.file_hashes().items() if Path(path).is_relative_to(root)}
 
     on_disk = {str(path) for path in notes}
-    gone = [path for path in store.file_hashes() if Path(path).is_relative_to(root) and path not in on_disk]
-    store.remove_files(gone)
-    report.removed = len(gone)
+    deleted = [path for path in previous if path not in on_disk]
+    store.remove_files(deleted)
+    report.removed = len(deleted)
 
     for done, path in enumerate(notes, start=1):
-        try:
-            data = path.read_bytes()
-        except OSError as err:
-            report.skipped.append((str(path), f"unreadable ({err.strerror})"))
-            continue
-        if b"\0" in data:
-            report.skipped.append((str(path), "binary file"))
-            continue
-        chunks = chunk_note(data.decode("utf-8", errors="replace"), path.name)
-        if chunks:
-            vectors = embedder.embed_documents([chunk.embedding_text for chunk in chunks])
-        else:
-            vectors = np.empty((0, store.dimension), dtype=np.float32)
-        store.replace_file(str(path), hashlib.sha256(data).hexdigest(), chunks, vectors)
-        report.indexed += 1
-        report.chunks += len(chunks)
+        _update_note(path, previous.get(str(path)), store, embedder, report)
         if on_progress:
             on_progress(done, len(notes), path)
     return report
+
+
+def _update_note(
+    path: Path, previous_hash: str | None, store: Store, embedder: DocumentEmbedder, report: IndexReport
+) -> None:
+    """Bring one note's entry up to date, embedding it only if its content changed."""
+    try:
+        data = path.read_bytes()
+        problem = "binary file" if b"\0" in data else None
+    except OSError as err:
+        data, problem = b"", f"unreadable ({err.strerror})"
+    if problem:
+        report.skipped.append((str(path), problem))
+        store.remove_files([str(path)])  # the index must only hold what is on disk now
+        return
+
+    digest = hashlib.sha256(data).hexdigest()
+    if digest == previous_hash:
+        report.unchanged += 1
+        return
+
+    chunks = chunk_note(data.decode("utf-8", errors="replace"), path.name)
+    if chunks:
+        vectors = embedder.embed_documents([chunk.embedding_text for chunk in chunks])
+    else:
+        vectors = np.empty((0, store.dimension), dtype=np.float32)
+    store.replace_file(str(path), digest, chunks, vectors)
+    report.chunks += len(chunks)
+    if previous_hash is None:
+        report.added += 1
+    else:
+        report.updated += 1

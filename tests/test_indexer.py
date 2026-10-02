@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from dejanote.chunking import Chunk
@@ -46,7 +48,7 @@ def test_every_note_under_the_folder_is_indexed_recursively(tmp_path, store, fak
     _write(notes, "sub/data.json", "{}")
     report = index_folder(notes, store, fake_embedder)
     assert set(store.file_hashes()) == {str(p) for p in expected}
-    assert report.indexed == 3
+    assert report.added == 3
 
 
 def test_hidden_folders_and_files_are_skipped(tmp_path, store, fake_embedder):
@@ -117,6 +119,82 @@ def test_an_empty_note_is_recorded_without_chunks(tmp_path, store, fake_embedder
     assert store.counts() == (1, 0)
 
 
+def _snapshot(store: Store):
+    """Everything search could ever see: files and hashes, chunk ids and contents, vectors."""
+    ids, matrix = store.vectors()
+    return store.file_hashes(), list(zip(ids.tolist(), store.chunks(ids))), matrix.copy()
+
+
+def test_unchanged_notes_are_not_embedded_again(tmp_path, store, fake_embedder):
+    notes = tmp_path / "notes"
+    for name in ("a.md", "b.md", "sub/c.txt"):
+        _write(notes, name, f"contents of {name}")
+    index_folder(notes, store, fake_embedder)
+    fake_embedder.batches.clear()
+    report = index_folder(notes, store, fake_embedder)
+    assert fake_embedder.batches == []
+    assert (report.added, report.updated, report.unchanged) == (0, 0, 3)
+
+
+def test_only_new_and_changed_notes_are_embedded(tmp_path, store, fake_embedder):
+    notes = tmp_path / "notes"
+    _write(notes, "same.md", "this note never changes")
+    edited = _write(notes, "edited.md", "first draft")
+    index_folder(notes, store, fake_embedder)
+    fake_embedder.batches.clear()
+    edited.write_text("second draft")
+    _write(notes, "new.md", "a brand new note")
+    report = index_folder(notes, store, fake_embedder)
+    embedded = " ".join(fake_embedder.embedded_texts)
+    assert "second draft" in embedded and "a brand new note" in embedded
+    assert "never changes" not in embedded
+    assert (report.added, report.updated, report.unchanged) == (1, 1, 1)
+
+
+def test_a_change_is_detected_even_when_the_modification_time_is_unchanged(tmp_path, store, fake_embedder):
+    # Restoring from a backup or some sync tools keep the old mtime; only content counts.
+    note = _write(tmp_path / "notes", "n.md", "original text")
+    original = note.stat()
+    index_folder(tmp_path / "notes", store, fake_embedder)
+    note.write_text("edited text")
+    os.utime(note, ns=(original.st_atime_ns, original.st_mtime_ns))
+    report = index_folder(tmp_path / "notes", store, fake_embedder)
+    assert report.updated == 1
+    assert [c.chunk.text for c in _stored_chunks(store)] == ["edited text"]
+
+
+def test_an_edited_note_leaves_no_trace_of_its_old_text(tmp_path, store, fake_embedder):
+    note = _write(tmp_path / "notes", "n.md", "# N\n\n## One\n\nold one\n\n## Two\n\nold two\n")
+    index_folder(tmp_path / "notes", store, fake_embedder)
+    note.write_text("# N\n\n## One\n\nnew one\n")
+    index_folder(tmp_path / "notes", store, fake_embedder)
+    assert [c.chunk.text for c in _stored_chunks(store)] == ["new one"]
+
+
+def test_reindexing_is_idempotent(tmp_path, store, fake_embedder):
+    notes = tmp_path / "notes"
+    _write(notes, "a.md", "# A\n\n## One\n\nfirst\n\n## Two\n\nsecond\n")
+    _write(notes, "sub/b.txt", "a plain text note")
+    _write(notes, "empty.md", "")
+    index_folder(notes, store, fake_embedder)
+    hashes, chunks, vectors = _snapshot(store)
+    for _ in range(2):
+        report = index_folder(notes, store, fake_embedder)
+        again_hashes, again_chunks, again_vectors = _snapshot(store)
+        assert again_hashes == hashes
+        assert again_chunks == chunks  # same ids too: nothing was rewritten
+        np.testing.assert_array_equal(again_vectors, vectors)
+        assert (report.added, report.updated, report.removed) == (0, 0, 0)
+
+
+def test_a_note_that_stops_being_text_drops_out_of_the_index(tmp_path, store, fake_embedder):
+    note = _write(tmp_path / "notes", "n.md", "readable for now")
+    index_folder(tmp_path / "notes", store, fake_embedder)
+    note.write_bytes(b"\x00\x01 binary now")
+    index_folder(tmp_path / "notes", store, fake_embedder)
+    assert store.file_hashes() == {}
+
+
 @pytest.mark.model
 def test_indexing_the_example_notes_makes_no_network_attempts(tmp_path, embedder):
     expected_files = len(list(EXAMPLES.rglob("*.md"))) + len(list(EXAMPLES.rglob("*.txt")))
@@ -125,5 +203,5 @@ def test_indexing_the_example_notes_makes_no_network_attempts(tmp_path, embedder
             report = index_folder(EXAMPLES, store, embedder)
         files, chunks = store.counts()
     assert guard.attempts == []
-    assert files == report.indexed == expected_files
+    assert files == report.added == expected_files
     assert chunks >= files

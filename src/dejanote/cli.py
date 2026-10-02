@@ -114,7 +114,7 @@ def index(
     elapsed = time.perf_counter() - started
 
     console.print(
-        f"Indexed {_plural(report.indexed, 'note')} from {escape(_display(folder))} "
+        f"Indexed {_plural(report.notes, 'note')} from {escape(_display(folder))} "
         f"into {_plural(report.chunks, 'chunk')} in {elapsed:.1f}s."
     )
     if report.removed:
