@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from typer.testing import CliRunner
+from watchfiles import Change
 
 from dejanote import cli
 from dejanote.cli import app
@@ -270,3 +271,32 @@ def test_browse_runs_the_browser_inside_the_network_guard_without_textual_devtoo
     assert outer_guard.attempts == []  # the command's own guard did the blocking
     assert result.stdout.strip() == "examples/notes/cooking/sourdough-starter.md:7"  # clean for scripts
     assert "DNS lookup of example.com" in result.stderr  # the blocked attempt is reported, on stderr
+
+
+def test_watch_without_the_model_explains_how_to_get_it(home, tmp_path):
+    (tmp_path / "notes").mkdir()
+    result = runner.invoke(app, ["watch", str(tmp_path / "notes")])
+    assert result.exit_code == 1
+    assert "dejanote setup" in result.output
+
+
+@pytest.mark.model
+def test_watch_reports_each_change_and_stops_cleanly_on_ctrl_c(home_with_model, tmp_path, monkeypatch):
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    note = notes / "boiler.md"
+    note.write_text("# Boiler\n\nTop up the pressure with the filling loop.\n")
+
+    def file_events(root, **options):  # stands in for the operating system's file events
+        note.write_text("# Boiler\n\nTop up the pressure to 1.2 bar with the filling loop.\n")
+        yield {(Change.modified, str(note))}
+        raise KeyboardInterrupt  # the user presses Ctrl+C
+
+    monkeypatch.setattr("dejanote.watcher.watch", file_events)
+    with block_network() as outer_guard:
+        result = runner.invoke(app, ["watch", str(notes)])
+    assert result.exit_code == 0, result.output
+    assert "updated boiler.md" in result.output
+    assert "Stopped watching" in result.output
+    assert "no network" in result.output.lower()
+    assert outer_guard.attempts == []  # the command's own guard covered the whole session

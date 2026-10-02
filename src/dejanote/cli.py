@@ -26,7 +26,7 @@ from dejanote.embedding import (
     is_model_downloaded,
     verify_model_files,
 )
-from dejanote.indexer import index_folder
+from dejanote.indexer import IndexReport, index_folder
 from dejanote.privacy import NetworkGuard, block_network
 from dejanote.search import SearchResult, search, snippet
 from dejanote.store import IndexMismatchError, Store
@@ -201,6 +201,69 @@ def browse(query: str = typer.Argument("", help="Start with this search.")) -> N
         _report_network(guard, Console(stderr=True, highlight=False))
     if chosen:
         typer.echo(chosen)
+
+
+@app.command()
+def watch(
+    folder: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+        help="Folder of notes to keep indexed. Subfolders are included.",
+    ),
+) -> None:
+    """Keep the index current while you edit: notes are reindexed as soon as they change.
+
+    Runs fully offline until you press Ctrl+C. The model stays loaded, so each
+    change is searchable within a second of saving.
+    """
+    from dejanote.watcher import watch_folder  # watchfiles is only imported for this command
+
+    with block_network() as guard:
+        embedder = _load_embedder()
+        with _open_index(embedder, rebuild_if_incompatible=True) as store:
+            if store.rebuilt:
+                console.print(
+                    "[yellow]The index was made with a different model or chunking version, "
+                    "so it is being rebuilt from scratch.[/]"
+                )
+            with console.status("Loading the model so changes are indexed as soon as you save..."):
+                embedder.embed_query("warm up")
+            console.print(f"Watching {escape(short_path(folder))} for changes. Press Ctrl+C to stop.")
+            updates = 0
+            attempts_shown = 0
+
+            def on_update(report: IndexReport, seconds: float) -> None:
+                nonlocal updates, attempts_shown
+                _print_watch_update(report, seconds, folder, first=updates == 0)
+                updates += 1
+                for attempt in guard.attempts[attempts_shown:]:  # report blocked attempts as they happen
+                    console.print(f"[yellow]Blocked a network attempt, nothing was sent:[/] {escape(attempt)}")
+                attempts_shown = len(guard.attempts)
+
+            try:
+                watch_folder(folder, store, embedder, on_update)
+            except KeyboardInterrupt:
+                pass
+    console.print("Stopped watching.")
+    _report_network(guard)
+
+
+def _print_watch_update(report: IndexReport, seconds: float, root: Path, first: bool) -> None:
+    """One line per update: what changed, or for the first update, where the index stands."""
+    stamp = time.strftime("%H:%M:%S")
+    if first and not report.changes:
+        console.print(f"[dim]{stamp}[/]  up to date: {plural(report.notes, 'note')}")
+    elif report.changes:
+        changes = ", ".join(
+            f"{kind} {escape(Path(path).relative_to(root).as_posix())}" for kind, path in sorted(report.changes)
+        )
+        embedded = f" ({plural(report.chunks, 'chunk')} embedded, {seconds:.2f}s)" if report.chunks else ""
+        console.print(f"[dim]{stamp}[/]  {changes}{embedded}")
+    for path, reason in report.skipped:
+        console.print(f"[dim]{stamp}[/]  [yellow]skipped {escape(short_path(Path(path)))} ({escape(reason)})[/]")
 
 
 _SAMPLE_NOTES = {
