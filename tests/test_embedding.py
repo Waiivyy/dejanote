@@ -107,6 +107,17 @@ def test_a_paraphrase_scores_far_above_an_unrelated_query(embedder):
 
 
 @pytest.mark.model
+def test_queries_are_embedded_with_the_models_query_prefix(model_dir):
+    # Some retrieval models (bge, e5) expect searches to be marked with an instruction.
+    embedder = Embedder(dataclasses.replace(DEFAULT_MODEL, query_prefix="search for: "), model_dir=model_dir)
+    np.testing.assert_allclose(
+        embedder.embed_query("sourdough"),
+        embedder.embed_documents(["search for: sourdough"])[0],
+        atol=1e-6,
+    )
+
+
+@pytest.mark.model
 def test_loading_the_model_prints_nothing(model_dir, capfd):
     # Library progress bars would clutter every search's output.
     Embedder(model_dir=model_dir).embed_query("loading happens on first use")

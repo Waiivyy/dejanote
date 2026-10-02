@@ -25,6 +25,7 @@ class ModelSpec:
     files: dict[str, str]
     dimension: int
     download_mb: int
+    query_prefix: str = ""  # instruction some retrieval models expect in front of searches
 
     @property
     def model_id(self) -> str:
@@ -146,7 +147,7 @@ class Embedder:
         return self._encode(texts)
 
     def embed_query(self, text: str) -> np.ndarray:
-        return self._encode([text])[0]
+        return self._encode([self.spec.query_prefix + text])[0]
 
     def _loaded(self):
         if self._model is None:
