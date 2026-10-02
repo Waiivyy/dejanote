@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.10" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.13" }
+    env:
+      DEJANOTE_REQUIRE_MODEL: "1" # tests that need the model must run, never skip
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # The CPU-only build of torch is a fraction of the size of the default CUDA one.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          fi
+          python -m pip install -e ".[dev]"
+          echo "DEJANOTE_HOME=$RUNNER_TEMP/dejanote" >> "$GITHUB_ENV"
+
+      - name: Cache the embedding model
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/dejanote/models
+          key: model-${{ hashFiles('src/dejanote/embedding.py') }}
+
+      - name: Download the model (the only step that uses the network)
+        run: dejanote setup --yes
+
+      - name: Tests
+        run: python -m pytest -W error
+
+      # The proofs below do not trust dejanote's own network guard: the operating
+      # system takes the network away, and a control check confirms it is gone.
+
+      - name: Offline proof on Linux (network namespace without any network)
+        if: runner.os == 'Linux'
+        run: |
+          dejanote="$(command -v dejanote)"
+          offline() { sudo --preserve-env=DEJANOTE_HOME unshare --net "$@"; }
+          if offline curl -sS --max-time 5 https://example.com -o /dev/null; then
+            echo "Control failed: the network is reachable inside the namespace."; exit 1
+          fi
+          echo "Control passed: curl cannot reach the network inside the namespace."
+          offline "$dejanote" verify
+          offline "$dejanote" index examples/notes
+          offline "$dejanote" search "felt burned out and needed a break" --limit 1
+
+      - name: Offline proof on macOS (sandbox that denies all networking)
+        if: runner.os == 'macOS'
+        run: |
+          offline() { sandbox-exec -p "(version 1)(allow default)(deny network*)" "$@"; }
+          if offline curl -sS --max-time 5 https://example.com -o /dev/null; then
+            echo "Control failed: the network is reachable inside the sandbox."; exit 1
+          fi
+          echo "Control passed: curl cannot reach the network inside the sandbox."
+          offline dejanote verify
+          offline dejanote index examples/notes
+          offline dejanote search "felt burned out and needed a break" --limit 1
