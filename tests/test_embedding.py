@@ -70,6 +70,19 @@ def test_missing_model_points_to_setup(tmp_path):
         Embedder(model_dir=tmp_path / "absent")
 
 
+def test_creating_an_embedder_does_not_load_the_model(tmp_path):
+    # Every file is present but none is a real model: only an attempt to load them can fail.
+    for name in DEFAULT_MODEL.files:
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("not a model")
+    embedder = Embedder(model_dir=tmp_path)
+    assert embedder.dimension == 384
+    with block_network() as guard:
+        with pytest.raises(Exception):
+            embedder.embed_query("first use is when the model loads")
+    assert guard.attempts == []
+
+
 @pytest.mark.model
 def test_the_embedder_reports_its_vector_size_and_model(embedder):
     assert embedder.dimension == 384
@@ -96,7 +109,7 @@ def test_a_paraphrase_scores_far_above_an_unrelated_query(embedder):
 @pytest.mark.model
 def test_loading_the_model_prints_nothing(model_dir, capfd):
     # Library progress bars would clutter every search's output.
-    Embedder(model_dir=model_dir)
+    Embedder(model_dir=model_dir).embed_query("loading happens on first use")
     assert capfd.readouterr() == ("", "")
 
 

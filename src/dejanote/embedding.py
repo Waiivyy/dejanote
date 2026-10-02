@@ -23,6 +23,7 @@ class ModelSpec:
     repo_id: str
     revision: str
     files: dict[str, str]
+    dimension: int
     download_mb: int
 
     @property
@@ -51,6 +52,7 @@ DEFAULT_MODEL = ModelSpec(
         "tokenizer_config.json": "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b",
         "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
     },
+    dimension=384,
     download_mb=92,
 )
 
@@ -121,7 +123,11 @@ def download_model(spec: ModelSpec = DEFAULT_MODEL, model_dir: Path | None = Non
 
 
 class Embedder:
-    """Turns text into unit-length vectors using a model loaded from local files only."""
+    """Turns text into unit-length vectors using a model loaded from local files only.
+
+    Creating one only checks that the model is on disk. The model itself (and
+    torch) loads on first use, so a run with nothing to embed stays fast.
+    """
 
     def __init__(self, spec: ModelSpec = DEFAULT_MODEL, model_dir: Path | None = None):
         self.spec = spec
@@ -131,15 +137,9 @@ class Embedder:
                 f"The embedding model is not on this machine yet (looked in {self.model_dir}).\n"
                 f"Run `dejanote setup` once to download it (about {spec.download_mb} MB)."
             )
-        enable_offline_mode()
-        from sentence_transformers import SentenceTransformer
-        from transformers.utils import logging as transformers_logging
-
-        transformers_logging.disable_progress_bar()  # keep library progress bars out of our output
-        self._model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
         self.model_id = spec.model_id
-        dimension = getattr(self._model, "get_embedding_dimension", None) or self._model.get_sentence_embedding_dimension
-        self.dimension: int = dimension()
+        self.dimension = spec.dimension
+        self._model = None
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         """One row per text."""
@@ -148,8 +148,22 @@ class Embedder:
     def embed_query(self, text: str) -> np.ndarray:
         return self._encode([text])[0]
 
+    def _loaded(self):
+        if self._model is None:
+            enable_offline_mode()
+            from sentence_transformers import SentenceTransformer
+            from transformers.utils import logging as transformers_logging
+
+            transformers_logging.disable_progress_bar()  # keep library progress bars out of our output
+            model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
+            dimension = getattr(model, "get_embedding_dimension", None) or model.get_sentence_embedding_dimension
+            if dimension() != self.dimension:
+                raise ModelIntegrityError(f"{self.model_dir} produces {dimension()}-d vectors, expected {self.dimension}")
+            self._model = model
+        return self._model
+
     def _encode(self, texts: list[str]) -> np.ndarray:
-        vectors = self._model.encode(
+        vectors = self._loaded().encode(
             texts,
             batch_size=32,
             normalize_embeddings=True,
