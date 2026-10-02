@@ -200,6 +200,32 @@ def test_notes_share_embedding_calls_without_mixing_up_their_vectors(tmp_path, s
         np.testing.assert_array_equal(vector, own_vector)
 
 
+class _CrashingEmbedder(FakeEmbedder):
+    """Fails on its second call, like a run interrupted halfway through."""
+
+    def embed_documents(self, texts):
+        if self.batches:
+            raise KeyboardInterrupt
+        return super().embed_documents(texts)
+
+
+def test_an_interrupted_run_keeps_finished_notes_and_the_next_run_completes_the_rest(tmp_path, store):
+    notes = tmp_path / "notes"
+    for i in range(300):  # enough chunks for more than one embedding batch
+        _write(notes, f"n{i:03}.md", f"note number {i}")
+    with pytest.raises(KeyboardInterrupt):
+        index_folder(notes, store, _CrashingEmbedder())
+    kept = len(store.file_hashes())
+    assert 0 < kept < 300
+    assert store.counts() == (kept, kept)  # every stored note is complete
+
+    resumed = FakeEmbedder()
+    report = index_folder(notes, store, resumed)
+    assert store.counts() == (300, 300)
+    assert (report.unchanged, report.added) == (kept, 300 - kept)
+    assert len(resumed.embedded_texts) == 300 - kept
+
+
 def test_a_note_that_stops_being_text_drops_out_of_the_index(tmp_path, store, fake_embedder):
     note = _write(tmp_path / "notes", "n.md", "readable for now")
     index_folder(tmp_path / "notes", store, fake_embedder)
