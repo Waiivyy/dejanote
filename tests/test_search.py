@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from dejanote.chunking import Chunk
-from dejanote.search import rank_chunks, search, snippet
+from dejanote.search import passages, rank_chunks, search, snippet, snippet_lines
 from dejanote.store import Store
 
 
@@ -91,6 +91,48 @@ def test_weak_sections_are_not_listed_under_their_note(store):
     store.replace_file("/notes/c.md", "hc", [_chunk("c1")], np.array([_scoring(0.6)]))
     [best] = search(store, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=1)
     assert best.also == ()  # a5 ranks below other notes' sections, so it is not worth a mention
+
+
+def _passage_texts(text: str) -> list[str]:
+    return [text[p.start : p.end] for p in passages(text)]
+
+
+def test_prose_is_split_into_sentences():
+    text = "Grey liquid on top means it is hungry. Pour it off!\nThen feed it? Yes."
+    assert _passage_texts(text) == ["Grey liquid on top means it is hungry.", "Pour it off!", "Then feed it?", "Yes."]
+
+
+def test_a_hard_wrapped_sentence_is_one_passage():
+    text = "Grey liquid\non top means hunger. Feed it."
+    assert _passage_texts(text) == ["Grey liquid\non top means hunger.", "Feed it."]
+
+
+def test_list_items_and_lines_of_code_are_passages_of_their_own():
+    text = "Signs:\n- doubled in size\n- smells tangy\n  like yoghurt\n\n```bash\ngit status\ngit log\n```"
+    assert _passage_texts(text) == ["Signs:", "- doubled in size", "- smells tangy\n  like yoghurt", "git status", "git log"]
+
+
+def _focus(text: str, wanted: str):
+    return next(p for p in passages(text) if text[p.start : p.end] == wanted)
+
+
+def test_the_focus_passage_is_marked_in_the_snippet():
+    text = "Grey liquid means hunger. A nail polish smell means the same. Pink streaks mean contamination."
+    focus = _focus(text, "A nail polish smell means the same.")
+    assert snippet_lines(text, focus=focus) == [
+        [("Grey liquid means hunger. ", False), ("A nail polish smell means the same.", True),
+         (" Pink streaks mean contamination.", False)],
+    ]
+
+
+def test_a_snippet_starts_at_a_focus_that_would_otherwise_be_cut_off():
+    filler = " ".join(f"Filler sentence number {i} about nothing much." for i in range(10))
+    text = f"{filler} The sentence that matched is here. And one more after it."
+    focus = _focus(text, "The sentence that matched is here.")
+    [line] = snippet_lines(text, max_chars=80, focus=focus)
+    assert line[0] == ("... ", False)
+    assert line[1] == ("The sentence that matched is here.", True)
+    assert sum(len(part) for part, _ in line) <= 80
 
 
 def test_snippets_join_hard_wrapped_prose_into_one_line_per_paragraph():

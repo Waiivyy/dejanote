@@ -13,6 +13,7 @@ from dejanote.chunking import LINE_ITEM, Chunk
 from dejanote.store import IndexedChunk
 
 _FENCE = re.compile(r"^(```|~~~)")
+_SENTENCE_GAP = re.compile(r"(?<=[.!?])\s+")
 
 
 class QueryEmbedder(Protocol):
@@ -81,33 +82,146 @@ def _top(scores: np.ndarray, k: int) -> np.ndarray:
     return candidates[np.argsort(-scores[candidates], kind="stable")]
 
 
-def snippet(text: str, max_chars: int = 240) -> str:
-    """A chunk's text condensed for display, one line per paragraph, list item or line of code.
+@dataclass(frozen=True)
+class Passage:
+    """A sentence of prose, a list item or a line of code: a span of a chunk's text."""
 
-    Hard-wrapped prose is joined up, blank lines and code fence markers are
-    dropped, and anything past max_chars is cut at a word boundary with "...".
+    start: int
+    end: int
+    new_line: bool  # starts a new line when the text is condensed for display
+
+
+def passages(text: str) -> list[Passage]:
+    """Split a chunk into passages: sentences of prose, list items, and lines of code.
+
+    Hard-wrapped lines of one sentence stay one passage, a list item keeps its
+    indented continuation lines, and code fence markers are not passages.
     """
-    lines: list[str] = []
+    found: list[Passage] = []
+    prose: list[int] | None = None  # [start, end] of the prose being collected
+    item: list[int] | None = None  # [start, end] of the list item being collected
     in_code = False
-    starts_new_line = True
+
+    def flush() -> None:
+        nonlocal prose, item
+        if item:
+            found.append(Passage(item[0], item[1], new_line=True))
+        if prose:
+            for i, (start, end) in enumerate(_sentences(text, *prose)):
+                found.append(Passage(start, end, new_line=i == 0))
+        prose = item = None
+
+    offset = 0
     for raw in text.split("\n"):
-        line = " ".join(raw.split())
-        if _FENCE.match(line):
+        start, end = offset + len(raw) - len(raw.lstrip()), offset + len(raw.rstrip())
+        offset += len(raw) + 1
+        if _FENCE.match(raw.strip()):
+            flush()
             in_code = not in_code
-            starts_new_line = True
-        elif not line:
-            starts_new_line = True
-        elif starts_new_line or in_code or LINE_ITEM.match(raw):
-            lines.append(line)
-            starts_new_line = False
+        elif start == end:
+            flush()
+        elif in_code:
+            flush()
+            found.append(Passage(start, end, new_line=True))
+        elif LINE_ITEM.match(raw):
+            flush()
+            item = [start, end]
+        elif item and raw[0].isspace():
+            item[1] = end  # an indented continuation of the list item
+        elif prose:
+            prose[1] = end
         else:
-            lines[-1] += " " + line
-    return _cut("\n".join(lines), max_chars)
+            flush()
+            prose = [start, end]
+    flush()
+    return found
 
 
-def _cut(text: str, max_chars: int) -> str:
-    if len(text) <= max_chars:
-        return text
-    cut = text[: max_chars - 3]
-    boundary = max(cut.rfind(" "), cut.rfind("\n"))
-    return (cut[:boundary] if boundary > 0 else cut) + "..."
+def _sentences(text: str, start: int, end: int):
+    position = start
+    for gap in _SENTENCE_GAP.finditer(text, start, end):
+        if gap.start() > position:
+            yield position, gap.start()
+        position = gap.end()
+    if position < end:
+        yield position, end
+
+
+def snippet_lines(text: str, max_chars: int = 240, focus: Passage | None = None) -> list[list[tuple[str, bool]]]:
+    """A chunk condensed for display: one line per paragraph, list item or line of code.
+
+    Each line is a list of (text, is_focus) parts, so the focus passage can be
+    highlighted. Text past max_chars is cut at a word boundary with "...", and
+    when the focus would be cut off, the snippet starts at it after "... ".
+    """
+    parts = [(" ".join(text[p.start : p.end].split()), p == focus, p.new_line) for p in passages(text)]
+    first = _first_part(parts, max_chars, focus)
+    budget = max_chars - (len(_SKIPPED) if first else 0)
+    kept: list[tuple[str, str, bool]] = []  # (separator, words, is_focus)
+    used = 0
+    for words, is_focus, new_line in parts[first:]:
+        separator = ("\n" if new_line else " ") if kept else ""
+        if used + len(separator) + len(words) > budget:
+            words = _whole_words(words, budget - used - len(separator) - 3)
+            if words:
+                kept.append((separator, words + "...", is_focus))
+            elif kept:
+                kept[-1] = (kept[-1][0], kept[-1][1] + "...", kept[-1][2])
+            break
+        kept.append((separator, words, is_focus))
+        used += len(separator) + len(words)
+    return _as_lines(kept, skipped=first > 0)
+
+
+def snippet(text: str, max_chars: int = 240, focus: Passage | None = None) -> str:
+    """The same as snippet_lines, as plain text."""
+    return "\n".join("".join(part for part, _ in line) for line in snippet_lines(text, max_chars, focus))
+
+
+_SKIPPED = "... "
+
+
+def _first_part(parts: list[tuple[str, bool, bool]], max_chars: int, focus: Passage | None) -> int:
+    """Index of the passage the snippet starts at: the focus, if it would not fit otherwise."""
+    if focus is None:
+        return 0
+    length = 0
+    for index, (words, is_focus, _) in enumerate(parts):
+        length += (1 if index else 0) + len(words)
+        if is_focus:
+            return index if length > max_chars - 3 else 0
+    return 0
+
+
+def _whole_words(words: str, room: int) -> str:
+    """The longest start of words, in whole words, that fits in room characters."""
+    if room <= 0:
+        return ""
+    if len(words) <= room:
+        return words
+    cut = words[:room]
+    if words[room] != " " and " " in cut:
+        cut = cut[: cut.rindex(" ")]
+    return cut.rstrip()
+
+
+def _as_lines(kept: list[tuple[str, str, bool]], skipped: bool) -> list[list[tuple[str, bool]]]:
+    """Group parts into lines, keep separators out of the focus, and merge neighbours alike."""
+    lines: list[list[tuple[str, bool]]] = [[(_SKIPPED, False)] if skipped else []]
+    for separator, words, is_focus in kept:
+        if separator == "\n":
+            lines.append([])
+        elif separator:
+            lines[-1].append((separator, False))
+        lines[-1].append((words, is_focus))
+    return [_merged(line) for line in lines if line]
+
+
+def _merged(line: list[tuple[str, bool]]) -> list[tuple[str, bool]]:
+    merged: list[tuple[str, bool]] = []
+    for part, is_focus in line:
+        if merged and merged[-1][1] == is_focus:
+            merged[-1] = (merged[-1][0] + part, is_focus)
+        else:
+            merged.append((part, is_focus))
+    return merged
