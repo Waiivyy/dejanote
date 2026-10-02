@@ -72,7 +72,9 @@ def setup(
     console.print(f"  model     {spec.repo_id}")
     console.print(f"  revision  {spec.revision} (pinned)")
     console.print("  from      https://huggingface.co")
-    console.print(f"  size      about {spec.download_mb} MB, {len(spec.files)} files, each checked against a pinned sha256")
+    console.print(
+        f"  size      about {spec.download_mb} MB, {len(spec.files)} files, each checked against a pinned sha256"
+    )
     console.print(f"  to        {target}\n")
     if not yes:
         typer.confirm("Download it now?", abort=True)

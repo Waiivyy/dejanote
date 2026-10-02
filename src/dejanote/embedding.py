@@ -158,7 +158,9 @@ class Embedder:
             model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
             dimension = getattr(model, "get_embedding_dimension", None) or model.get_sentence_embedding_dimension
             if dimension() != self.dimension:
-                raise ModelIntegrityError(f"{self.model_dir} produces {dimension()}-d vectors, expected {self.dimension}")
+                raise ModelIntegrityError(
+                    f"{self.model_dir} produces {dimension()}-d vectors, expected {self.dimension}"
+                )
             self._model = model
         return self._model
 
