@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import FakeEmbedder
 from dejanote.chunking import Chunk
 from dejanote.indexer import index_folder
 from dejanote.privacy import block_network
@@ -185,6 +186,18 @@ def test_reindexing_is_idempotent(tmp_path, store, fake_embedder):
         assert again_chunks == chunks  # same ids too: nothing was rewritten
         np.testing.assert_array_equal(again_vectors, vectors)
         assert (report.added, report.updated, report.removed) == (0, 0, 0)
+
+
+def test_notes_share_embedding_calls_without_mixing_up_their_vectors(tmp_path, store, fake_embedder):
+    notes = tmp_path / "notes"
+    for i in range(10):
+        _write(notes, f"n{i}.md", f"# Note {i}\n\n## A\n\nfirst part of note {i}\n\n## B\n\nsecond part of note {i}\n")
+    index_folder(notes, store, fake_embedder)
+    assert len(fake_embedder.batches) == 1  # all 20 chunks in one model call, not one call per note
+    ids, matrix = store.vectors()
+    for vector, stored in zip(matrix, store.chunks(ids)):
+        own_vector = FakeEmbedder().embed_documents([stored.chunk.embedding_text])[0]
+        np.testing.assert_array_equal(vector, own_vector)
 
 
 def test_a_note_that_stops_being_text_drops_out_of_the_index(tmp_path, store, fake_embedder):
