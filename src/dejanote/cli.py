@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import textwrap
 import time
@@ -14,6 +15,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from dejanote import __version__, config
 from dejanote.display import plural, short_path
+from dejanote.editor import configured_editor
 from dejanote.embedding import (
     DEFAULT_MODEL,
     Embedder,
@@ -176,6 +178,31 @@ def search_notes(
     _report_network(guard)
 
 
+@app.command()
+def browse(query: str = typer.Argument("", help="Start with this search.")) -> None:
+    """Search interactively: results update as you type. Runs fully offline.
+
+    Arrow keys move through the results and Enter opens the note in $VISUAL or
+    $EDITOR at the matching line. Without an editor, Enter quits and prints the
+    note's path:line. Escape quits.
+    """
+    os.environ.pop("TEXTUAL", None)  # keeps Textual's devtools client off, even if configured
+    with block_network() as guard:
+        embedder = _load_embedder()
+        if not config.index_path().exists():
+            console.print("There is no index yet. Run `dejanote index <folder>` first.", markup=False)
+            raise typer.Exit(1)
+        with _open_index(embedder) as store:
+            index = store.snapshot()
+        from dejanote.tui import BrowseApp  # Textual is only imported for this command
+
+        chosen = BrowseApp(index, embedder, query=query, guard=guard, editor=configured_editor()).run()
+    if guard.attempts:
+        _report_network(guard, Console(stderr=True, highlight=False))
+    if chosen:
+        typer.echo(chosen)
+
+
 _SAMPLE_NOTES = {
     "sourdough.md": "# Sourdough starter\n\nDiscard half, then feed it flour and water twice a day.\n"
     "Grey liquid on top means it is hungry, not dead.\n",
@@ -280,14 +307,15 @@ def _progress() -> Progress:
     )
 
 
-def _report_network(guard: NetworkGuard) -> None:
+def _report_network(guard: NetworkGuard, out: Console | None = None) -> None:
     """Every offline command ends with a receipt: nothing attempted, or exactly what was blocked."""
+    out = out or console
     if not guard.attempts:
-        console.print("[dim]No network connections were attempted.[/]")
+        out.print("[dim]No network connections were attempted.[/]")
         return
-    console.print(
+    out.print(
         f"[yellow]Warning: blocked {plural(len(guard.attempts), 'network attempt')} during this run. "
         "Nothing was sent.[/]"
     )
     for attempt in guard.attempts:
-        console.print(f"  {escape(attempt)}")
+        out.print(f"  {escape(attempt)}")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import socket
 from pathlib import Path
@@ -229,3 +230,43 @@ def test_verify_without_the_model_explains_how_to_get_it(home):
     result = runner.invoke(app, ["verify"])
     assert result.exit_code == 1
     assert "dejanote setup" in result.output
+
+
+def test_browse_without_the_model_explains_how_to_get_it(home):
+    result = runner.invoke(app, ["browse"])
+    assert result.exit_code == 1
+    assert "dejanote setup" in result.output
+
+
+@pytest.mark.model
+def test_browse_without_an_index_says_how_to_build_one(home_with_model):
+    result = runner.invoke(app, ["browse"])
+    assert result.exit_code == 1
+    assert "dejanote index" in result.output
+    assert not (home_with_model / "index.db").exists()
+
+
+@pytest.mark.model
+def test_browse_runs_the_browser_inside_the_network_guard_without_textual_devtools(home_with_model, monkeypatch):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    monkeypatch.setenv("TEXTUAL", "devtools")  # would make Textual connect to a local devtools server
+    seen = {}
+
+    def probe(self):  # stands in for the interactive session, which needs a real terminal
+        seen["devtools setting"] = os.environ.get("TEXTUAL")
+        seen["query"] = self.initial_query
+        try:
+            socket.getaddrinfo("example.com", 443)
+            seen["network"] = "open"
+        except OSError:
+            seen["network"] = "blocked"
+        return "examples/notes/cooking/sourdough-starter.md:7"
+
+    monkeypatch.setattr("dejanote.tui.BrowseApp.run", probe)
+    with block_network() as outer_guard:  # so a regression fails the test instead of reaching the network
+        result = runner.invoke(app, ["browse", "sourdough"])
+    assert result.exit_code == 0, result.output
+    assert seen == {"devtools setting": None, "query": "sourdough", "network": "blocked"}
+    assert outer_guard.attempts == []  # the command's own guard did the blocking
+    assert result.stdout.strip() == "examples/notes/cooking/sourdough-starter.md:7"  # clean for scripts
+    assert "DNS lookup of example.com" in result.stderr  # the blocked attempt is reported, on stderr
