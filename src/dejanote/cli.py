@@ -62,9 +62,11 @@ def setup(
         try:
             verify_model_files(target, spec)
         except ModelIntegrityError as err:
-            console.print(f"[yellow]The model at {target} failed verification:[/] {err}")
+            console.print(
+                f"[yellow]The model at {escape(_display(target))} failed verification:[/] {escape(str(err))}"
+            )
         else:
-            console.print(f"Model already downloaded and verified: {target}")
+            console.print(f"Model already downloaded and verified: {escape(_display(target))}")
             console.print("Nothing to do. Every other command runs fully offline.")
             return
 
@@ -78,7 +80,7 @@ def setup(
     console.print(
         f"  size      about {spec.download_mb} MB, {len(spec.files)} files, each checked against a pinned sha256"
     )
-    console.print(f"  to        {target}\n")
+    console.print(f"  to        {escape(_display(target))}\n")
     if not yes:
         typer.confirm("Download it now?", abort=True)
 
@@ -89,7 +91,7 @@ def setup(
             console.print(f"[red]Download failed:[/] {err}")
             console.print("Nothing was saved. Check your connection and run `dejanote setup` again.")
             raise typer.Exit(1) from None
-    console.print(f"[green]Done.[/] Model saved to {target}")
+    console.print(f"[green]Done.[/] Model saved to {escape(_display(target))}")
     console.print("From here on, dejanote works fully offline.")
 
 
@@ -237,7 +239,9 @@ def _print_results(results: list[SearchResult]) -> None:
                 f"{s.chunk.headings[-1] if len(s.chunk.headings) > 1 else 'intro'} (line {s.chunk.start_line})"
                 for s in result.also
             )
-            wrapped = textwrap.fill(f"also: {others}", width=width, initial_indent=indent, subsequent_indent=indent)
+            wrapped = textwrap.fill(
+                f"also: {others}", width=width, initial_indent=indent, subsequent_indent=indent
+            )
             console.print(wrapped, style="dim", markup=False)
         console.print()
 
