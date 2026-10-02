@@ -182,6 +182,14 @@ def _print_results(results: list[SearchResult]) -> None:
         for line in snippet(result.chunk.text).split("\n"):
             wrapped = textwrap.fill(line, width=width, initial_indent=indent, subsequent_indent=indent)
             console.print(wrapped, markup=False)
+        if result.also:
+            # A note's untitled opening only carries the note's own title, so call it the intro.
+            others = ", ".join(
+                f"{s.chunk.headings[-1] if len(s.chunk.headings) > 1 else 'intro'} (line {s.chunk.start_line})"
+                for s in result.also
+            )
+            wrapped = textwrap.fill(f"also: {others}", width=width, initial_indent=indent, subsequent_indent=indent)
+            console.print(wrapped, style="dim", markup=False)
         console.print()
 
 

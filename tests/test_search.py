@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from dejanote.chunking import Chunk
-from dejanote.search import search, snippet
+from dejanote.search import rank_chunks, search, snippet
 from dejanote.store import Store
 
 
@@ -47,12 +47,50 @@ def test_only_the_best_results_up_to_the_limit_come_back_in_order(store):
     angles = np.radians(degrees)
     vectors = np.stack([np.cos(angles), np.sin(angles), np.zeros(len(degrees))], axis=1)
     store.replace_file("/notes/fan.md", "h", [_chunk(f"angle {d}") for d in degrees], vectors)
-    results = search(store, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=10)
+    results = rank_chunks(store, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=10)
     assert [r.chunk.headings[0] for r in results] == [f"angle {d}" for d in range(0, 30, 3)]
 
 
 def test_an_empty_index_has_no_results(store):
     assert search(store, FixedQuery([1.0, 0.0, 0.0]), "anything") == []
+
+
+def _scoring(score: float) -> list[float]:
+    """A unit vector whose cosine similarity with the query [1, 0, 0] is exactly score."""
+    return [score, (1 - score**2) ** 0.5, 0.0]
+
+
+@pytest.fixture
+def notes_with_sections(store):
+    # Ranking for the query [1, 0, 0]: a1, a2, a3, a4, b1, c1, then a5 far behind.
+    store.replace_file(
+        "/notes/a.md", "ha",
+        [_chunk("a1"), _chunk("a2"), _chunk("a3"), _chunk("a4"), _chunk("a5")],
+        np.array([_scoring(s) for s in (0.9, 0.85, 0.8, 0.75, 0.1)]),
+    )
+    store.replace_file("/notes/b.md", "hb", [_chunk("b1")], np.array([_scoring(0.7)]))
+    store.replace_file("/notes/c.md", "hc", [_chunk("c1")], np.array([_scoring(0.6)]))
+    return store
+
+
+def test_each_note_appears_once_with_its_best_section_and_other_strong_sections_under_it(notes_with_sections):
+    results = search(notes_with_sections, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=3, related=2)
+    assert [(r.path, r.chunk.headings[0]) for r in results] == [("/notes/a.md", "a1"), ("/notes/b.md", "b1"), ("/notes/c.md", "c1")]
+    assert [s.chunk.headings[0] for s in results[0].also] == ["a2", "a3"]
+    assert results[1].also == ()
+
+
+def test_the_limit_counts_notes_not_sections(notes_with_sections):
+    results = search(notes_with_sections, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=2)
+    assert [r.path for r in results] == ["/notes/a.md", "/notes/b.md"]
+
+
+def test_weak_sections_are_not_listed_under_their_note(store):
+    store.replace_file("/notes/a.md", "ha", [_chunk("a1"), _chunk("a5")], np.array([_scoring(0.9), _scoring(0.1)]))
+    store.replace_file("/notes/b.md", "hb", [_chunk("b1")], np.array([_scoring(0.7)]))
+    store.replace_file("/notes/c.md", "hc", [_chunk("c1")], np.array([_scoring(0.6)]))
+    [best] = search(store, FixedQuery([1.0, 0.0, 0.0]), "anything", limit=1)
+    assert best.also == ()  # a5 ranks below other notes' sections, so it is not worth a mention
 
 
 def test_snippets_join_hard_wrapped_prose_into_one_line_per_paragraph():

@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from dejanote.search import QueryEmbedder, search
+from dejanote.search import QueryEmbedder, rank_chunks
 from dejanote.store import Store
 
 
@@ -51,7 +51,7 @@ def load_cases(path: Path) -> list[Case]:
 def run_case(store: Store, embedder: QueryEmbedder, notes_root: Path, case: Case) -> Outcome:
     """Rank every chunk for the case's query and find where the expected note and section land."""
     everything = store.counts()[1]
-    results = search(store, embedder, case.query, limit=everything)
+    results = rank_chunks(store, embedder, case.query, limit=everything)
     notes: list[str] = []
     section_rank = None
     for rank, result in enumerate(results, start=1):

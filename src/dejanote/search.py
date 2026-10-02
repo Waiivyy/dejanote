@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 import numpy as np
@@ -23,10 +23,33 @@ class SearchResult:
     score: float  # cosine similarity between the query and the chunk, at most 1
     path: str
     chunk: Chunk
+    also: tuple[SearchResult, ...] = ()  # other strong sections of the same note, best first
 
 
-def search(store: Store, embedder: QueryEmbedder, query: str, limit: int = 5) -> list[SearchResult]:
-    """The chunks most similar in meaning to the query, best first.
+def search(
+    store: Store, embedder: QueryEmbedder, query: str, limit: int = 5, related: int = 2
+) -> list[SearchResult]:
+    """The notes that best match the query, one result per note, best first.
+
+    Each result is the note's best-matching section. Up to `related` other
+    sections of the same note that rank among the top chunks are listed under
+    it instead of crowding other notes out of the results.
+    """
+    ranked = rank_chunks(store, embedder, query, limit=limit * 8)  # wide enough to find `limit` notes
+    strong = limit * 2  # chunks ranked this high are worth a mention under their note
+    by_note: dict[str, SearchResult] = {}
+    for position, hit in enumerate(ranked):
+        best = by_note.get(hit.path)
+        if best is None:
+            if len(by_note) < limit:
+                by_note[hit.path] = hit
+        elif position < strong and len(best.also) < related:
+            by_note[hit.path] = replace(best, also=(*best.also, hit))
+    return list(by_note.values())
+
+
+def rank_chunks(store: Store, embedder: QueryEmbedder, query: str, limit: int) -> list[SearchResult]:
+    """The chunks most similar in meaning to the query, best first, however many share a note.
 
     Every stored vector has unit length, so one matrix-vector product gives the
     cosine similarity between the query and every chunk at once.

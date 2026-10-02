@@ -170,3 +170,13 @@ def test_search_on_an_index_built_for_another_model_says_to_reindex(home_with_mo
     result = runner.invoke(app, ["search", "anything"])
     assert result.exit_code == 1
     assert "dejanote index" in result.output
+
+
+@pytest.mark.model
+def test_search_lists_a_note_once_with_its_other_matching_sections(home_with_model):
+    runner.invoke(app, ["index", str(EXAMPLES)])
+    result = runner.invoke(app, ["search", "the heating stopped and the gauge is low"])
+    assert result.exit_code == 0, result.output
+    assert result.output.count("home/boiler-pressure.md:") == 1
+    boiler_block = next(block for block in result.output.split("\n\n") if "boiler-pressure.md" in block)
+    assert "also:" in boiler_block
