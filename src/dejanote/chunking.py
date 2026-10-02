@@ -15,8 +15,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import PurePath
 
-# all-MiniLM-L6-v2 reads at most 256 tokens. 150 words of English prose is
-# roughly 200 tokens, which leaves room for the heading path.
+# 150 words of English prose is roughly 200 tokens: comfortably inside the
+# model's window (512 tokens for bge-small, 256 for MiniLM) with room for the
+# heading path, and short enough that a result points at one specific passage.
 MAX_WORDS = 150
 
 # Bump whenever chunk boundaries or chunk text change. The index records it, so

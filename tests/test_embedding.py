@@ -98,12 +98,17 @@ def test_a_note_embeds_to_a_unit_vector(embedder):
 
 
 @pytest.mark.model
-def test_a_paraphrase_scores_far_above_an_unrelated_query(embedder):
+def test_a_paraphrase_clearly_outranks_unrelated_queries(embedder):
     # The paraphrase shares no content words with the note, so it can only match on meaning.
+    # The margin is measured against the best unrelated query because every model has its
+    # own score scale (unrelated text scores around 0.05 with MiniLM but 0.5 with bge).
     note = embedder.embed_documents([NOTE.read_text()])[0]
-    paraphrase = embedder.embed_query("maintaining wild yeast for homemade loaves")
-    unrelated = embedder.embed_query("quarterly VAT filing deadline")
-    assert float(note @ paraphrase) > float(note @ unrelated) + 0.2
+    paraphrase = float(note @ embedder.embed_query("maintaining wild yeast for homemade loaves"))
+    unrelated = [
+        float(note @ embedder.embed_query(query))
+        for query in ("quarterly VAT filing deadline", "configuring a VPN on Linux", "how to change a car tyre")
+    ]
+    assert paraphrase > max(unrelated) + 0.1
 
 
 @pytest.mark.model
