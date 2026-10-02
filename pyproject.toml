@@ -27,6 +27,7 @@ dependencies = [
     # rename them, so only the tested major is allowed.
     "huggingface-hub>=1.31,<2",
     "truststore>=0.9",
+    "tqdm>=4.60",
     "numpy>=1.24",
     "typer>=0.12",
     "rich>=14.2",

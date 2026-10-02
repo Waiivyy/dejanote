@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -127,6 +130,32 @@ def test_loading_the_model_prints_nothing(model_dir, capfd):
     # Library progress bars would clutter every search's output.
     Embedder(model_dir=model_dir).embed_query("loading happens on first use")
     assert capfd.readouterr() == ("", "")
+
+
+@pytest.mark.model
+def test_embedding_works_when_stderr_has_no_file_descriptor(model_dir):
+    # The interactive browser runs with sys.stderr captured by Textual. tqdm inside
+    # sentence-transformers used to create a multiprocessing lock there, which starts a helper
+    # process that needs a real stderr, and the browser crashed on its first search.
+    # A fresh interpreter, because in this one tqdm's lock may already exist.
+    script = textwrap.dedent(
+        f"""
+        import io, sys
+        class CapturedStderr(io.StringIO):
+            def fileno(self):
+                return -1
+        sys.stderr = CapturedStderr()
+        from pathlib import Path
+        from dejanote.embedding import Embedder
+        try:
+            Embedder(model_dir=Path({str(model_dir)!r})).embed_query("hello")
+            print("embedded")
+        except Exception as err:
+            print(f"failed: {{type(err).__name__}}: {{err}}")
+        """
+    )
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300)
+    assert result.stdout.strip() == "embedded"
 
 
 @pytest.mark.model

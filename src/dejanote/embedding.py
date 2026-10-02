@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -157,7 +158,14 @@ class Embedder:
         if self._model is None:
             enable_offline_mode()
             from sentence_transformers import SentenceTransformer
+            from tqdm import tqdm
             from transformers.utils import logging as transformers_logging
+
+            # sentence-transformers creates tqdm bars even with progress bars off, and tqdm's
+            # default lock is a multiprocessing one that starts a helper process. That helper
+            # cannot start when stderr is captured, as in the interactive browser, and one
+            # process never needs more than a thread lock.
+            tqdm.set_lock(threading.RLock())
 
             transformers_logging.disable_progress_bar()  # keep library progress bars out of our output
             model = SentenceTransformer(str(self.model_dir), device="cpu", local_files_only=True)
