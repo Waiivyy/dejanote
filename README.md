@@ -14,9 +14,9 @@ Local embeddings, a local index, and a guarantee you can check that nothing leav
 
 </div>
 
-![dejanote indexing the example notes, then finding a journal entry for the query "felt burned out and needed a break"](docs/demo.svg)
+![dejanote indexing the example notes, then finding a journal entry for the query "felt burned out and needed a break" and printing its matching sentence in bold](docs/demo.svg)
 
-The top result never says "burned out". The note reads *"completely drained"* and *"taking Monday off, no laptop"*, and it is still the first hit, because dejanote matches meaning rather than keywords.
+The top result never says "burned out". The note reads *"completely drained"* and *"taking Monday off, no laptop"*, and it is still the first hit, because dejanote matches meaning rather than keywords. Inside the note, it picks out the sentence closest to the query, prints it in bold and points `path:line` at it.
 
 ## Contents
 
@@ -40,8 +40,9 @@ The top result never says "burned out". The note reads *"completely drained"* an
 - **Private by design.** Embedding, indexing and search all run locally. After a one-time model download dejanote never uses the network, and every command ends with a receipt that says so.
 - **Verifiable.** A built-in `verify` command, plus operating-system checks that do not rely on dejanote's own word. CI runs those checks on every commit.
 - **Section-level results.** Notes are split by heading, then paragraph, then sentence, so a result is the passage that answers you rather than a multi-page file.
+- **Highlights the answer.** Inside each result, the sentence, list item or line of code closest to your query is highlighted, and `path:line` points at that line, so you land right on it.
 - **Incremental indexing.** Notes are tracked by content hash and only new or changed ones are embedded. An unchanged folder of 3,000 notes is rechecked in under a second.
-- **Interactive browser.** `dejanote browse` searches as you type, previews each match and opens it in your editor at the matching line.
+- **Interactive browser.** `dejanote browse` searches as you type, previews each match with its line numbers and highlight, and opens it in your editor at the highlighted line.
 - **Watch mode.** `dejanote watch` keeps the index current while you edit, so a note is searchable a moment after you save it.
 - **Plain files.** Works on any folder of Markdown and text files, Obsidian vaults included. Nothing is imported, converted or moved.
 
@@ -135,35 +136,38 @@ Several folders can share one index; each run only touches the folder you name.
 
 ### `dejanote search QUERY`
 
-Prints the best-matching notes, one result per note: the similarity score, a clickable `path:line`, the heading path of the matching section and a snippet. Other strong sections of the same note are listed under it. `--limit N` sets how many notes to show (default 5).
+Prints the best-matching notes, one result per note: the similarity score, a clickable `path:line`, the heading path of the matching section and a snippet. Within the section, the passage closest to your query (a sentence, a list item or a line of code) is printed in bold, and `path:line` points at its line. When that passage sits deep inside a long section, the snippet starts at it, after `...`. Other strong sections of the same note are listed under it. `--limit N` sets how many notes to show (default 5).
 
 ```
-$ dejanote search "the heating stopped and the gauge is low" --limit 1
-0.71  examples/notes/home/boiler-pressure.md:7
-      Boiler pressure > Normal range
-      The gauge should read between 1 and 1.5 bar when the system is cold. Up to
-      about 2 bar while the heating is running is fine. Below 0.5 it locks out.
-      also: intro (line 3)
+$ dejanote search "recover a branch I deleted by accident" --limit 1
+0.75  examples/notes/tech/git-recipes.md:25
+      Git recipes > Get back a deleted branch
+      The reflog remembers where HEAD has been, even after a branch is gone:
+      git reflog
+      git switch -c recovered-branch <sha-from-reflog>
+      also: Clean up a messy branch before review (line 50)
 
 No network connections were attempted.
 ```
+
+The section starts at line 21, but the location points at line 25: the `git switch` command, which the terminal shows in bold.
 
 Scores are cosine similarities. With the default model, around 0.7 and above is a strong match and unrelated text still scores around 0.4 to 0.5, so compare scores with each other rather than reading them as percentages.
 
 ### `dejanote browse [QUERY]`
 
-Searches as you type. The model loads once when the browser opens, and from then on results follow your keystrokes within a fraction of a second.
+Searches as you type. The model loads once when the browser opens, and from then on results follow your keystrokes within a fraction of a second. The preview shows the selected section as it is in the file, with the note's own line numbers, and highlights the passage closest to your query. The highlight is worked out for the selected result only, a few tens of milliseconds after you select it, so moving through the results stays instant.
 
-![dejanote browse showing the boiler note as the best match for "the heating stopped and the gauge is low", with the matching section previewed](docs/browse.svg)
+![dejanote browse showing the git recipes note as the best match for "recover a branch I deleted by accident", with lines 21 to 26 previewed and the git switch command on line 25 highlighted](docs/browse.svg)
 
 | Key | Action |
 |---|---|
 | Type | Search |
 | `↑` `↓` | Move through the results; the preview follows |
-| `Enter` | Open the note in `$VISUAL` or `$EDITOR` at the matching line |
+| `Enter` | Open the note in `$VISUAL` or `$EDITOR` at the highlighted line |
 | `Esc` | Quit |
 
-Without an editor configured, `Enter` quits and prints the note's `path:line`, so the browser also works as a picker in scripts. The status line carries the same network receipt as every other command. The browser reads the index when it opens; notes indexed while it is open appear the next time you start it.
+Without an editor configured, `Enter` quits and prints the highlighted passage's `path:line`, so the browser also works as a picker in scripts. The status line carries the same network receipt as every other command. The browser reads the index when it opens; notes indexed while it is open appear the next time you start it.
 
 ### `dejanote watch FOLDER`
 
@@ -230,12 +234,12 @@ Let the operating system take the network away, then use dejanote as usual. Each
 $ sandbox-exec -p '(version 1)(allow default)(deny network*)' curl https://example.com
 curl: (6) Could not resolve host: example.com
 $ sandbox-exec -p '(version 1)(allow default)(deny network*)' dejanote search "felt burned out and needed a break" --limit 1
-0.64  examples/notes/journal/2024-05-12.md:1
+0.64  examples/notes/journal/2024-05-12.md:5
       2024-05-12
-      Rough week. Shipped the migration on Friday after three late nights and I
-      am completely drained. Snapped at Ben in standup on Thursday over
-      something tiny; apologised afterwards, but it has been bugging me.
-      Went for a long walk by the...
+      ... Decided: taking Monday off, no laptop. And I need to stop saying yes
+      to every side project people bring me. The hiring panel and the docs
+      working group can find someone else for a few months. Talk to Sam about it
+      on Tuesday.
 
 No network connections were attempted.
 ```
@@ -279,6 +283,7 @@ flowchart LR
     index --> rank["Cosine similarity<br/>numpy, exact"]
     qembed --> rank
     rank --> results["Results<br/>one per note"]
+    results --> highlight["Highlight<br/>closest passage"]
 ```
 
 1. **Find notes.** `.md`, `.markdown` and `.txt` files, recursively, skipping hidden files and folders.
@@ -286,6 +291,7 @@ flowchart LR
 3. **Embed.** Each chunk is embedded together with its heading path, so "Discard all but 50 g, then add 50 g flour" is understood as being about feeding a sourdough starter. Queries get the instruction the model was trained with.
 4. **Store.** One SQLite file, with float32 vectors next to the text. Every note's sha256 is stored too, so the next run skips unchanged notes without embedding them again. Changing the model or the chunking rules rebuilds the index automatically.
 5. **Search.** One matrix-vector product gives the exact cosine similarity between the query and every chunk; there is no approximate index. Results are then grouped by note.
+6. **Highlight.** Each result's section is split into passages: sentences, list items and lines of code. Every passage is embedded twice, on its own and together with the passages either side of it, and the one whose two similarities to the query add up highest is highlighted. On its own a short sentence can win on a single shared word; read with its neighbours, its meaning in context counts too. `search` does this for the results it prints, `browse` only for the selected one.
 
 ## Search quality
 
@@ -299,20 +305,22 @@ flowchart LR
 
 bge-small became the default because of this table: it fixed exactly the paraphrased queries the others missed. Two caveats apply. The same person wrote the notes and the queries, and 46 queries is a small set. The ranking agrees with public retrieval benchmarks, but your own notes are the real test. Reproduce it with `python scripts/evaluate.py --all --misses`.
 
+Highlights are scored as well. 34 of the queries list the passages that answer them, and the evaluation checks the highlight inside the expected section, so a ranking miss is not counted twice. With bge-small, the highlight is an expected passage for 28 of the 34 (0.82); scoring each passage on its own, without its neighbours, gets 25. `python scripts/evaluate.py --misses` lists every wrong highlight.
+
 ## Performance
 
 Measured on an Apple Silicon laptop CPU with 3,016 notes (11,368 chunks):
 
 | Operation | Time |
 |---|---|
-| First index | about 70 s |
-| Index again, nothing changed | 0.8 s |
-| Index again after editing one note | 5.1 s |
-| One `search` | 3.9 s |
-| `browse`: opening, then each search | about 5 s once, then about 0.2 s |
+| First index | about 60 s |
+| Index again, nothing changed | 0.6 s |
+| Index again after editing one note | 4.3 s |
+| One `search` | 4.0 s |
+| `browse`: opening, then each search | about 4 s once, then about 0.2 s |
 | `watch`: from saving a note to it being searchable | about 0.6 s |
 
-The index for those 3,016 notes is 26 MB. Of a `search`'s 3.9 seconds, embedding the query and ranking every chunk take about 50 ms; most of the rest is Python importing sentence-transformers and its dependencies on every run. That cost is why `browse` and `watch` exist: they pay it once. On each save, `watch` finds what changed by re-reading and hashing the folder, which for 3,016 notes takes about half a second; embedding the edited note itself takes a few hundredths of a second.
+The index for those 3,016 notes is 26 MB. Of a `search`'s 4.0 seconds, embedding the query and ranking every chunk take about 30 ms, and choosing the passage to highlight in each of the five results about a tenth of a second; most of the rest is Python importing sentence-transformers and its dependencies on every run. That cost is why `browse` and `watch` exist: they pay it once. In `browse`, the highlight follows about 0.1 s after the results. On each save, `watch` finds what changed by re-reading and hashing the folder, which for 3,016 notes takes about half a second; embedding the edited note itself takes a few hundredths of a second.
 
 ## Configuration
 
@@ -334,6 +342,8 @@ The index for those 3,016 notes is 26 MB. Of a `search`'s 3.9 seconds, embedding
 
 **Why does a single `search` take a few seconds?** Almost all of it is Python loading the machine learning libraries, which happens on every run. `browse` and `watch` load them once.
 
+**How reliable is the highlight?** It is the passage the same model rates closest to your query, read together with its neighbours. On the example queries it is an expected passage about four times in five. When it misses, it is often the line next to the one you wanted, and `browse` always shows the whole section around it.
+
 **Can I use a different model?** Not from the command line yet. Candidate models are pinned and compared in `scripts/evaluate.py`. If you change the default in [src/dejanote/embedding.py](src/dejanote/embedding.py), the next `index` or `watch` run rebuilds the index for it automatically.
 
 ## Development
@@ -346,7 +356,7 @@ dejanote setup     # tests that need the real model are skipped until it is down
 pytest
 ```
 
-The test suite covers chunking, the index, incremental indexing, search, search quality on the example notes, the network guard, the browser (driven headlessly) and watch mode, including real file events. CI runs it on Linux and macOS with the real model, followed by the offline checks above. To refresh the README images, run `python scripts/record_demo.py`.
+The test suite covers chunking, the index, incremental indexing, search, highlighting, search quality on the example notes, the network guard, the browser (driven headlessly) and watch mode, including real file events. CI runs it on Linux and macOS with the real model, followed by the offline checks above. To refresh the README images, run `python scripts/record_demo.py`.
 
 ```
 src/dejanote/
@@ -355,7 +365,7 @@ src/dejanote/
   chunking.py     splits notes into sections, paragraphs and sentences
   embedding.py    pinned model download and offline embedding
   store.py        the SQLite index and its in-memory snapshot
-  search.py       ranking and grouping results by note
+  search.py       ranking, grouping results by note, highlights
   tui.py          the interactive browser
   watcher.py      watch mode
   editor.py       opens a note in $VISUAL or $EDITOR at a line
@@ -364,12 +374,11 @@ src/dejanote/
   config.py       where files live
   display.py      how paths and counts are written
 scripts/          evaluate.py (model comparison), record_demo.py (README images)
-examples/         notes/ (26 example notes), queries.json (evaluation queries)
+examples/         notes/ (26 example notes), queries.json (evaluation queries and answers)
 ```
 
 ## Roadmap
 
-- Highlight the phrase that matched inside each result.
 - Let `browse` pick up notes that `watch` indexes while it is open.
 - In `watch`, read only the files that changed instead of rehashing the folder, for very large collections.
 - Choose among the evaluated models from the command line.
