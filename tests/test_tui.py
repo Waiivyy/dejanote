@@ -51,6 +51,12 @@ def snapshot(tmp_path):
     return index_of(tmp_path, NOTES)
 
 
+def browse(index, embedder=None, **options) -> BrowseApp:
+    """The browser with a short search debounce and no wait before finding a highlight, unless asked."""
+    options = {"debounce": 0.05, "highlight_delay": 0, **options}
+    return BrowseApp(index, embedder or FakeEmbedder(), **options)
+
+
 def run(app, script, size=(110, 30)):
     """Run the app headless, let script(pilot) drive it, and return what the app exited with."""
 
@@ -114,7 +120,7 @@ class HeldBack(FakeEmbedder):
 
 
 def test_typing_lists_the_best_matching_note_first_and_previews_it(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+    app = browse(snapshot)
 
     async def script(pilot):
         await pilot.press(*"boiler pressure")
@@ -129,7 +135,7 @@ def test_typing_lists_the_best_matching_note_first_and_previews_it(snapshot):
 
 
 def test_the_arrow_keys_move_through_results_and_the_preview_follows(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+    app = browse(snapshot)
 
     async def script(pilot):
         await pilot.press(*"boiler pressure")
@@ -146,7 +152,7 @@ def test_the_arrow_keys_move_through_results_and_the_preview_follows(snapshot):
 
 
 def test_a_starting_query_is_searched_right_away(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), query="sourdough starter", debounce=0.05)
+    app = browse(snapshot, query="sourdough starter")
 
     async def script(pilot):
         await settle(pilot)
@@ -157,7 +163,7 @@ def test_a_starting_query_is_searched_right_away(snapshot):
 
 def test_enter_opens_the_note_in_the_editor_at_the_matching_line_and_keeps_browsing(snapshot):
     launched = []
-    app = BrowseApp(snapshot, FakeEmbedder(), editor="vim", launch=launched.append, debounce=0.05)
+    app = browse(snapshot, editor="vim", launch=launched.append)
 
     async def script(pilot):
         await pilot.press(*"sourdough starter")
@@ -171,7 +177,7 @@ def test_enter_opens_the_note_in_the_editor_at_the_matching_line_and_keeps_brows
 
 
 def test_without_an_editor_enter_quits_with_the_location(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), editor=None, debounce=0.05)
+    app = browse(snapshot, editor=None)
 
     async def script(pilot):
         await pilot.press(*"sourdough starter")
@@ -182,7 +188,7 @@ def test_without_an_editor_enter_quits_with_the_location(snapshot):
 
 
 def test_the_preview_highlights_the_passage_closest_to_the_query(tmp_path):
-    app = BrowseApp(index_of(tmp_path, {"health/shins.md": SHINS}), FakeEmbedder(), debounce=0.05)
+    app = browse(index_of(tmp_path, {"health/shins.md": SHINS}))
 
     async def script(pilot):
         await pilot.press(*HURTS)
@@ -193,7 +199,7 @@ def test_the_preview_highlights_the_passage_closest_to_the_query(tmp_path):
 
 
 def test_the_preview_numbers_each_line_as_in_the_note(tmp_path):
-    app = BrowseApp(index_of(tmp_path, {"health/shins.md": SHINS}), FakeEmbedder(), debounce=0.05)
+    app = browse(index_of(tmp_path, {"health/shins.md": SHINS}))
 
     async def script(pilot):
         await pilot.press(*HURTS)
@@ -211,7 +217,7 @@ def test_the_preview_numbers_each_line_as_in_the_note(tmp_path):
 def test_enter_opens_the_editor_at_the_highlighted_line(tmp_path):
     launched = []
     index = index_of(tmp_path, {"health/shins.md": SHINS})
-    app = BrowseApp(index, FakeEmbedder(), editor="vim", launch=launched.append, debounce=0.05)
+    app = browse(index, editor="vim", launch=launched.append)
 
     async def script(pilot):
         await pilot.press(*HURTS)
@@ -224,7 +230,7 @@ def test_enter_opens_the_editor_at_the_highlighted_line(tmp_path):
 
 
 def test_without_an_editor_enter_quits_with_the_highlighted_line(tmp_path):
-    app = BrowseApp(index_of(tmp_path, {"health/shins.md": SHINS}), FakeEmbedder(), editor=None, debounce=0.05)
+    app = browse(index_of(tmp_path, {"health/shins.md": SHINS}), editor=None)
 
     async def script(pilot):
         await pilot.press(*HURTS)
@@ -236,10 +242,11 @@ def test_without_an_editor_enter_quits_with_the_highlighted_line(tmp_path):
 
 def test_a_highlight_that_arrives_after_moving_on_is_not_shown(tmp_path):
     embedder = HeldBack("physio")  # the shins note's highlight is held back
-    app = BrowseApp(index_of(tmp_path, {"shins.md": SHINS, "knee.md": KNEE}), embedder, debounce=0.05)
+    # A starting query instead of typing: on a slow machine every keystroke could start a search,
+    # each holding back another highlight, until no thread is left for the knee note's.
+    app = browse(index_of(tmp_path, {"shins.md": SHINS, "knee.md": KNEE}), embedder, query=HURTS)
 
     async def script(pilot):
-        await pilot.press(*HURTS)
         await until(pilot, lambda: len(app.results) == 2)
         assert Path(app.results[0].path).name == "shins.md"
         await pilot.press("down")
@@ -252,10 +259,29 @@ def test_a_highlight_that_arrives_after_moving_on_is_not_shown(tmp_path):
     run(app, script)
 
 
+def test_results_passed_over_quickly_are_not_highlighted(tmp_path):
+    elbow = "# Elbow\n\nThe elbow is sore.\nIt hurts when lifting.\n"
+    embedder = FakeEmbedder()
+    index = index_of(tmp_path, {"shins.md": SHINS, "knee.md": KNEE, "elbow.md": elbow})
+    app = browse(index, embedder, query=HURTS, highlight_delay=1.0)
+
+    async def script(pilot):
+        await until(pilot, lambda: len(app.results) == 3)
+        await pilot.press("down", "down")  # well within the delay: the selection rests on the third
+        await pilot.pause(1.3)
+        await settle(pilot)
+        scored = [batch for batch in embedder.batches if len(batch) > 1]  # passages, not queries
+        assert len(scored) == 1
+        assert scored[0][0] == app.results[2].chunk.text.split("\n")[0]
+        assert highlighted(app) != ""
+
+    run(app, script)
+
+
 def test_a_highlight_further_down_a_long_section_is_scrolled_into_view(tmp_path):
     steps = "\n".join(f"- step {n} done" for n in range(1, 31))
     checklist = f"# Checklist\n\n{steps}\n- the boiler gauge reads low\n"  # one section, 33 lines
-    app = BrowseApp(index_of(tmp_path, {"checklist.md": checklist}), FakeEmbedder(), debounce=0.05)
+    app = browse(index_of(tmp_path, {"checklist.md": checklist}))
 
     async def script(pilot):
         await pilot.press(*"boiler gauge low")
@@ -267,7 +293,7 @@ def test_a_highlight_further_down_a_long_section_is_scrolled_into_view(tmp_path)
 
 
 def test_escape_quits_without_choosing_anything(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+    app = browse(snapshot)
 
     async def script(pilot):
         await pilot.press(*"boiler")
@@ -278,7 +304,7 @@ def test_escape_quits_without_choosing_anything(snapshot):
 
 
 def test_the_status_line_shows_the_index_size_and_the_network_receipt(snapshot):
-    app = BrowseApp(snapshot, FakeEmbedder(), guard=NetworkGuard(), debounce=0.05)
+    app = browse(snapshot, guard=NetworkGuard())
 
     async def script(pilot):
         await settle(pilot)
@@ -292,7 +318,7 @@ def test_the_status_line_shows_the_index_size_and_the_network_receipt(snapshot):
 def test_blocked_network_attempts_show_in_the_status_line(snapshot):
     guard = NetworkGuard()
     guard.attempts.append("DNS lookup of telemetry.example.com")
-    app = BrowseApp(snapshot, FakeEmbedder(), guard=guard, debounce=0.05)
+    app = browse(snapshot, guard=guard)
 
     async def script(pilot):
         await pilot.press(*"boiler")
@@ -303,7 +329,7 @@ def test_blocked_network_attempts_show_in_the_status_line(snapshot):
 
 
 def test_paths_are_shown_relative_to_the_notes_folder(snapshot, tmp_path):
-    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+    app = browse(snapshot)
 
     async def script(pilot):
         await pilot.press(*"boiler pressure")
@@ -326,7 +352,7 @@ def test_each_result_takes_exactly_two_lines_however_long_its_heading(tmp_path):
     with Store(tmp_path / "index.db", embedder.model_id, embedder.dimension) as store:
         index_folder(notes, store, embedder)
         index = store.snapshot()
-    app = BrowseApp(index, embedder, debounce=0.05)
+    app = browse(index, embedder)
 
     async def script(pilot):
         await pilot.press(*"boiler pressure")
@@ -340,7 +366,7 @@ def test_each_result_takes_exactly_two_lines_however_long_its_heading(tmp_path):
 
 def test_the_command_palette_is_off(snapshot):
     # Textual's palette offers actions such as saving screenshots; the browser has one job.
-    app = BrowseApp(snapshot, FakeEmbedder(), debounce=0.05)
+    app = browse(snapshot)
 
     async def script(pilot):
         await settle(pilot)
@@ -354,7 +380,7 @@ def test_with_the_real_model_a_paraphrase_finds_the_journal_entry(tmp_path, embe
     with Store(tmp_path / "index.db", embedder.model_id, embedder.dimension) as store:
         index_folder(EXAMPLES, store, embedder)
         snapshot = store.snapshot()
-    app = BrowseApp(snapshot, embedder, query="felt burned out and needed a break", debounce=0.05)
+    app = browse(snapshot, embedder, query="felt burned out and needed a break")
 
     async def script(pilot):
         await settle(pilot)

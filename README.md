@@ -156,7 +156,7 @@ Scores are cosine similarities. With the default model, around 0.7 and above is 
 
 ### `dejanote browse [QUERY]`
 
-Searches as you type. The model loads once when the browser opens, and from then on results follow your keystrokes within a fraction of a second. The preview shows the selected section as it is in the file, with the note's own line numbers, and highlights the passage closest to your query. The highlight is worked out for the selected result only, a few tens of milliseconds after you select it, so moving through the results stays instant.
+Searches as you type. The model loads once when the browser opens, and from then on results follow your keystrokes within a fraction of a second. The preview shows the selected section as it is in the file, with the note's own line numbers, and highlights the passage closest to your query. The highlight is worked out only for the result you stop on, about a tenth of a second after you stop, so moving through the results stays instant and the results you pass over cost nothing.
 
 ![dejanote browse showing the git recipes note as the best match for "recover a branch I deleted by accident", with lines 21 to 26 previewed and the git switch command on line 25 highlighted](docs/browse.svg)
 
@@ -320,7 +320,7 @@ Measured on an Apple Silicon laptop CPU with 3,016 notes (11,368 chunks):
 | `browse`: opening, then each search | about 4 s once, then about 0.2 s |
 | `watch`: from saving a note to it being searchable | about 0.6 s |
 
-The index for those 3,016 notes is 26 MB. Of a `search`'s 4.0 seconds, embedding the query and ranking every chunk take about 30 ms, and choosing the passage to highlight in each of the five results about a tenth of a second; most of the rest is Python importing sentence-transformers and its dependencies on every run. That cost is why `browse` and `watch` exist: they pay it once. In `browse`, the highlight follows about 0.1 s after the results. On each save, `watch` finds what changed by re-reading and hashing the folder, which for 3,016 notes takes about half a second; embedding the edited note itself takes a few hundredths of a second.
+The index for those 3,016 notes is 26 MB. Of a `search`'s 4.0 seconds, embedding the query and ranking every chunk take about 30 ms, and choosing the passage to highlight in each of the five results about a tenth of a second; most of the rest is Python importing sentence-transformers and its dependencies on every run. That cost is why `browse` and `watch` exist: they pay it once. In `browse`, the highlight appears about 0.13 s after the results. On each save, `watch` finds what changed by re-reading and hashing the folder, which for 3,016 notes takes about half a second; embedding the edited note itself takes a few hundredths of a second.
 
 ## Configuration
 

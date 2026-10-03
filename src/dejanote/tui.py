@@ -3,8 +3,9 @@
 The model loads once in the background and the index is held in memory, so
 after the first few seconds every search takes milliseconds instead of the
 seconds a one-off `dejanote search` spends starting up. The passage to
-highlight is found only for the selected result, a few tens of milliseconds
-after it is selected, so moving through results stays instant.
+highlight is found only for the selected result, once the selection has
+rested for a moment, so moving through results stays instant and results
+passed over cost nothing.
 """
 
 from __future__ import annotations
@@ -75,6 +76,7 @@ class BrowseApp(App[str | None]):
         editor: str | None = None,
         launch: Callable[[list[str]], object] | None = None,
         debounce: float = 0.15,
+        highlight_delay: float = 0.05,
     ):
         super().__init__()
         self.index = index
@@ -85,12 +87,13 @@ class BrowseApp(App[str | None]):
         self.editor = editor
         self.launch = launch or self._run_in_terminal
         self.debounce = debounce
+        self.highlight_delay = highlight_delay
         self.results: list[SearchResult] = []
         self.results_query = ""  # the query self.results answer
         self.selected: SearchResult | None = None
         self.highlight: Passage | None = None  # in the selected result, once found
         self._highlights: dict[tuple[str, Chunk], Passage | None] = {}  # found for self.results
-        self._requested: set[tuple[str, Chunk]] = set()
+        self._highlight_timer: Timer | None = None
         self._model_ready = threading.Event()
         self._model_state = "loading the model"
         self._timer: Timer | None = None
@@ -152,7 +155,6 @@ class BrowseApp(App[str | None]):
         self.results = results
         self.results_query = query
         self._highlights.clear()
-        self._requested.clear()
         options = self.query_one(OptionList)
         options.clear_options()
         options.add_options([Option(_result_line(result, self.root)) for result in results])
@@ -166,16 +168,27 @@ class BrowseApp(App[str | None]):
             self._select(self.results[event.option_index])
 
     def _select(self, result: SearchResult | None) -> None:
+        if result is not None and result is self.selected:
+            return  # the list reporting a selection that was already made
         self.selected = result
         self.highlight = None
+        if self._highlight_timer is not None:
+            self._highlight_timer.stop()
+            self._highlight_timer = None
         if result is not None:
             key = (result.path, result.chunk)
             if key in self._highlights:
                 self.highlight = self._highlights[key]
-            elif key not in self._requested:
-                self._requested.add(key)
-                self.find_highlight(self.results_query, result)
+            else:
+                self._find_highlight_when_resting(self.results_query, result)
         self._show_preview()
+
+    def _find_highlight_when_resting(self, query: str, result: SearchResult) -> None:
+        """Find the highlight once the selection stays put, not for every result moved past."""
+        if self.highlight_delay:
+            self._highlight_timer = self.set_timer(self.highlight_delay, lambda: self.find_highlight(query, result))
+        else:  # Textual timers cannot have a zero delay
+            self.find_highlight(query, result)
 
     @work(thread=True, group="highlight")
     def find_highlight(self, query: str, result: SearchResult) -> None:

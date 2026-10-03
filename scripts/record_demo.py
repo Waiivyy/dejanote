@@ -68,7 +68,7 @@ def _record_browser() -> str:
     embedder = Embedder()
     with Store(config.index_path(), embedder.model_id, embedder.dimension) as store:
         index = store.snapshot()
-    app = BrowseApp(index, embedder, debounce=0.05)
+    app = BrowseApp(index, embedder, debounce=0.05, highlight_delay=0)  # highlight as soon as selected
 
     async def session() -> str:
         async with app.run_test(size=(118, 30)) as pilot:
