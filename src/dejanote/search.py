@@ -151,16 +151,24 @@ def passage_line(chunk: Chunk, passage: Passage | None) -> int:
 def best_passages(embedder: PassageEmbedder, query: str, texts: list[str]) -> list[Passage | None]:
     """For each text, the passage closest in meaning to the query: the one worth highlighting.
 
+    Each passage is scored on its own and together with its neighbours, then the
+    two scores are added. On its own, a short sentence can win on one shared
+    word, and "Do it every few uses." means little without the sentence before it.
     A text that is a single passage gets None, since highlighting all of it says
-    nothing. The passages of all texts are embedded together in one batch.
+    nothing. Everything is embedded together in one batch.
     """
     found = [passages(text) for text in texts]
-    candidates = [
-        " ".join(text[p.start : p.end].split()) for text, ps in zip(texts, found) if len(ps) > 1 for p in ps
-    ]
-    if not candidates:
+    alone: list[str] = []
+    together: list[str] = []
+    for text, ps in zip(texts, found):
+        if len(ps) > 1:
+            words = [" ".join(text[p.start : p.end].split()) for p in ps]
+            alone += words
+            together += [" ".join(words[max(0, i - 1) : i + 2]) for i in range(len(words))]
+    if not alone:
         return [None] * len(texts)
-    scores = embedder.embed_documents(candidates) @ embedder.embed_query(query)
+    similarity = embedder.embed_documents(alone + together) @ embedder.embed_query(query)
+    scores = similarity[: len(alone)] + similarity[len(alone) :]
     best: list[Passage | None] = []
     position = 0
     for ps in found:

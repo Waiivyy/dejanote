@@ -47,6 +47,16 @@ def test_the_highlight_is_the_passage_that_answers_the_query(example_index, embe
     assert best.chunk.text[passage.start : passage.end] == "- no tipping anywhere; it comes across as awkward or even rude"
 
 
+
+@pytest.mark.model
+def test_a_highlight_is_judged_together_with_the_sentences_around_it(example_index, embedder):
+    # On its own, "First time in weeks my head felt quiet." scores highest, partly for sharing
+    # "felt" with the query. Read with its neighbours, the decision to take a day off wins.
+    query = "felt burned out and needed a break"
+    best = search(example_index, embedder, query)[0]
+    [passage] = best_passages(embedder, query, [best.chunk.text])
+    assert best.chunk.text[passage.start : passage.end] == "Decided: taking Monday off, no laptop."
+
 @pytest.mark.model
 def test_search_quality_on_the_example_queries_does_not_regress(example_index, embedder):
     # Measured with bge-small-en-v1.5: note@1 0.98, note@3 1.00, section@1 0.79, MRR 0.99.

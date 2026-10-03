@@ -3,8 +3,8 @@
 The model loads once in the background and the index is held in memory, so
 after the first few seconds every search takes milliseconds instead of the
 seconds a one-off `dejanote search` spends starting up. The passage to
-highlight is found only for the selected result, a few milliseconds after it
-is selected, so moving through results stays instant.
+highlight is found only for the selected result, a few tens of milliseconds
+after it is selected, so moving through results stays instant.
 """
 
 from __future__ import annotations
