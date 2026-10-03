@@ -2,7 +2,9 @@
 
 The model loads once in the background and the index is held in memory, so
 after the first few seconds every search takes milliseconds instead of the
-seconds a one-off `dejanote search` spends starting up.
+seconds a one-off `dejanote search` spends starting up. The passage to
+highlight is found only for the selected result, a few milliseconds after it
+is selected, so moving through results stays instant.
 """
 
 from __future__ import annotations
@@ -14,7 +16,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 from rich.console import Group, RenderableType
-from rich.markdown import Markdown
+from rich.segment import Segment
+from rich.style import Style
+from rich.table import Table
 from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
@@ -25,20 +29,21 @@ from textual.widgets import Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 from textual.worker import get_current_worker
 
-from dejanote.chunking import MARKDOWN_SUFFIXES
+from dejanote.chunking import Chunk
 from dejanote.display import plural, short_path
 from dejanote.editor import editor_command
 from dejanote.privacy import NetworkGuard
-from dejanote.search import QueryEmbedder, SearchResult, search
+from dejanote.search import Passage, PassageEmbedder, SearchResult, best_passages, passage_line, search
 from dejanote.store import IndexSnapshot
 
 RESULTS = 20
+HIGHLIGHT = Style(bold=True, bgcolor="#4a4220")  # a highlighter pen that keeps text readable on the dark theme
 
 
 class BrowseApp(App[str | None]):
     """Browse the index interactively.
 
-    With an editor, Enter opens the selected note at the matching line and
+    With an editor, Enter opens the selected note at the highlighted line and
     browsing continues. Without one, Enter quits and the app returns the
     note's "path:line", which the command prints for use in scripts.
     """
@@ -63,7 +68,7 @@ class BrowseApp(App[str | None]):
     def __init__(
         self,
         index: IndexSnapshot,
-        embedder: QueryEmbedder,
+        embedder: PassageEmbedder,
         *,
         query: str = "",
         guard: NetworkGuard | None = None,
@@ -81,7 +86,11 @@ class BrowseApp(App[str | None]):
         self.launch = launch or self._run_in_terminal
         self.debounce = debounce
         self.results: list[SearchResult] = []
+        self.results_query = ""  # the query self.results answer
         self.selected: SearchResult | None = None
+        self.highlight: Passage | None = None  # in the selected result, once found
+        self._highlights: dict[tuple[str, Chunk], Passage | None] = {}  # found for self.results
+        self._requested: set[tuple[str, Chunk]] = set()
         self._model_ready = threading.Event()
         self._model_state = "loading the model"
         self._timer: Timer | None = None
@@ -141,17 +150,45 @@ class BrowseApp(App[str | None]):
         if query != self.query_one(Input).value:
             return  # typing went on; a newer search is on its way
         self.results = results
+        self.results_query = query
+        self._highlights.clear()
+        self._requested.clear()
         options = self.query_one(OptionList)
         options.clear_options()
         options.add_options([Option(_result_line(result, self.root)) for result in results])
         if results:
             options.highlighted = 0
-        self._preview(results[0] if results else None)
+        self._select(results[0] if results else None)
         self._refresh_status()
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option_index < len(self.results):
-            self._preview(self.results[event.option_index])
+            self._select(self.results[event.option_index])
+
+    def _select(self, result: SearchResult | None) -> None:
+        self.selected = result
+        self.highlight = None
+        if result is not None:
+            key = (result.path, result.chunk)
+            if key in self._highlights:
+                self.highlight = self._highlights[key]
+            elif key not in self._requested:
+                self._requested.add(key)
+                self.find_highlight(self.results_query, result)
+        self._show_preview()
+
+    @work(thread=True, group="highlight")
+    def find_highlight(self, query: str, result: SearchResult) -> None:
+        [passage] = best_passages(self.embedder, query, [result.chunk.text])
+        self.call_from_thread(self._highlight_found, query, result, passage)
+
+    def _highlight_found(self, query: str, result: SearchResult, passage: Passage | None) -> None:
+        if query != self.results_query:
+            return  # the results have changed since
+        self._highlights[(result.path, result.chunk)] = passage
+        if result is self.selected:  # not if the selection has moved on meanwhile
+            self.highlight = passage
+            self._show_preview()
 
     def action_move(self, step: int) -> None:
         options = self.query_one(OptionList)
@@ -163,7 +200,7 @@ class BrowseApp(App[str | None]):
     def action_open(self) -> None:
         if self.selected is None:
             return
-        path, line = self.selected.path, self.selected.chunk.start_line
+        path, line = self.selected.path, passage_line(self.selected.chunk, self.highlight)
         if self.editor is None:
             self.exit(f"{short_path(Path(path))}:{line}")
         else:
@@ -174,10 +211,22 @@ class BrowseApp(App[str | None]):
         with self.suspend():
             subprocess.run(command, check=False)
 
-    def _preview(self, result: SearchResult | None) -> None:
-        self.selected = result
-        self.query_one("#preview", Static).update(_preview(result, self.root) if result else "")
+    def _show_preview(self) -> None:
+        result = self.selected
+        self.query_one("#preview", Static).update(_preview(result, self.root, self.highlight) if result else "")
         self.query_one("#preview-pane", VerticalScroll).scroll_home(animate=False)
+        if self.highlight is not None:
+            self.call_after_refresh(self._scroll_to_highlight)
+
+    def _scroll_to_highlight(self) -> None:
+        """Bring the highlight into view when the section is too long to show whole."""
+        preview = self.query_one("#preview", Static)
+        pane = self.query_one("#preview-pane", VerticalScroll)
+        options = self.console.options.update_width(preview.size.width)
+        lines = self.console.render_lines(preview.content, options, pad=False)
+        rows = [y for y, line in enumerate(lines) if _shows_highlight(line)]
+        if rows and rows[-1] >= pane.scrollable_content_region.height:
+            pane.scroll_to(y=max(0, rows[0] - 2), animate=False)
 
     def _refresh_status(self) -> None:
         notes, chunks = self.index.counts()
@@ -210,7 +259,7 @@ def _result_line(result: SearchResult, root: Path | None) -> Text:
     return line
 
 
-def _preview(result: SearchResult, root: Path | None) -> RenderableType:
+def _preview(result: SearchResult, root: Path | None, highlight: Passage | None) -> RenderableType:
     chunk = result.chunk
     if chunk.start_line == chunk.end_line:
         lines = f"line {chunk.start_line}"
@@ -220,14 +269,35 @@ def _preview(result: SearchResult, root: Path | None) -> RenderableType:
         Text(f"{_relative(result.path, root)}, {lines}", style="bold cyan"),
         Text(" > ".join(chunk.headings), style="dim"),
         Text(""),
+        _numbered(chunk, highlight),
     ]
-    if Path(result.path).suffix.lower() in MARKDOWN_SUFFIXES:
-        parts.append(Markdown(chunk.text, hyperlinks=False))  # nothing clickable that could open a browser
-    else:
-        parts.append(Text(chunk.text))
     if result.also:
         parts.append(Text("\nAlso matches in this note:", style="dim"))
         for other in result.also:
             name = other.chunk.headings[-1] if len(other.chunk.headings) > 1 else "intro"
             parts.append(Text(f"  {name}, line {other.chunk.start_line}", style="dim"))
     return Group(*parts)
+
+
+def _numbered(chunk: Chunk, highlight: Passage | None) -> Table:
+    """The section as it is in the note, each line numbered as in the note, the highlight marked.
+
+    Plain text rather than rendered Markdown: the line numbers then match what
+    the editor shows, and nothing in the preview is a link that could be clicked.
+    """
+    text = Text(chunk.text)
+    highlighted_lines = range(0)
+    if highlight is not None:
+        text.stylize(HIGHLIGHT, highlight.start, highlight.end)
+        first = passage_line(chunk, highlight)
+        highlighted_lines = range(first, first + chunk.text.count("\n", highlight.start, highlight.end) + 1)
+    table = Table.grid(padding=(0, 1))
+    table.add_column(justify="right", no_wrap=True)
+    table.add_column()
+    for number, line in enumerate(text.split("\n", allow_blank=True), start=chunk.start_line):
+        table.add_row(Text(str(number), style="bold" if number in highlighted_lines else "dim"), line)
+    return table
+
+
+def _shows_highlight(line: list[Segment]) -> bool:
+    return any(segment.style is not None and segment.style.bgcolor == HIGHLIGHT.bgcolor for segment in line)
