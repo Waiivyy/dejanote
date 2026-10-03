@@ -80,7 +80,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--model", action="append", choices=sorted(CANDIDATES), help="model to score (repeatable)")
     parser.add_argument("--all", action="store_true", help="score every candidate model")
-    parser.add_argument("--misses", action="store_true", help="list the queries whose note was not ranked first")
+    parser.add_argument("--misses", action="store_true", help="list notes not ranked first and wrong highlights")
     args = parser.parse_args()
     names = sorted(CANDIDATES) if args.all else (args.model or [DEFAULT_MODEL.name])
     cases = load_cases(QUERIES)
@@ -93,8 +93,10 @@ def main() -> None:
             print(f"downloading {spec.repo_id} (about {spec.download_mb} MB, needs the network)...")
             download_model(spec)
 
-    print(f"{len(cases)} queries over {NOTES.relative_to(ROOT)}\n")
-    print(f"{'model':<28}{'note@1':>8}{'note@3':>8}{'sect@1':>8}{'sect@3':>8}{'MRR':>7}{'index':>8}{'query':>8}")
+    judged = sum(1 for case in cases if case.passages)
+    print(f"{len(cases)} queries over {NOTES.relative_to(ROOT)}, {judged} with expected passages\n")
+    header = f"{'model':<28}{'note@1':>8}{'note@3':>8}{'sect@1':>8}{'sect@3':>8}{'MRR':>7}{'highl.':>8}"
+    print(f"{header}{'index':>8}{'query':>8}")
     for name in names:
         spec = CANDIDATES[name]
         embedder = Embedder(spec)
@@ -111,13 +113,16 @@ def main() -> None:
         s = score(outcomes)
         print(
             f"{name:<28}{s.note_at_1:>8.2f}{s.note_at_3:>8.2f}{s.section_at_1:>8.2f}{s.section_at_3:>8.2f}"
-            f"{s.mrr:>7.2f}{indexed:>7.1f}s{per_query * 1000:>6.0f}ms"
+            f"{s.mrr:>7.2f}{s.highlight:>8.2f}{indexed:>7.1f}s{per_query * 1000:>6.0f}ms"
         )
         if args.misses:
             for o in outcomes:
                 if o.note_rank != 1:
                     rank = f"rank {o.note_rank}" if o.note_rank else "not found"
                     print(f"    miss ({rank}): {o.case.query!r} -> wanted {o.case.note}, got {o.top_note}")
+            for o in outcomes:
+                if o.highlight_right is False:
+                    print(f"    highlight: {o.case.query!r} -> {o.highlight!r}")
 
 
 if __name__ == "__main__":

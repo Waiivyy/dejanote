@@ -7,8 +7,10 @@ import json
 import numpy as np
 import pytest
 
+from conftest import FakeEmbedder
 from dejanote.chunking import Chunk
 from dejanote.evaluation import Case, Outcome, load_cases, run_case, score
+from dejanote.indexer import index_folder
 from dejanote.store import Store
 
 
@@ -52,6 +54,26 @@ def test_a_note_that_is_not_in_the_index_has_no_rank(tmp_path, store):
     assert (outcome.note_rank, outcome.section_rank) == (None, None)
 
 
+def test_the_highlight_is_judged_inside_the_expected_section(tmp_path):
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    (notes / "boiler.md").write_text("# Boiler\n\n## Pressure\n\nThe gauge reads low. Open the filling loop taps slowly.\n")
+    embedder = FakeEmbedder()  # similarity is word overlap, so the second sentence is the highlight
+    query = "open the filling loop taps"
+    with Store(tmp_path / "index.db", embedder.model_id, embedder.dimension) as store:
+        index_folder(notes, store, embedder)
+        right = run_case(store, embedder, notes, Case(query, "boiler.md", "Pressure", ("Open the filling loop",)))
+        wrong = run_case(store, embedder, notes, Case(query, "boiler.md", "Pressure", ("The gauge reads low",)))
+    assert right.highlight_right is True
+    assert wrong.highlight_right is False
+    assert wrong.highlight == "Open the filling loop taps slowly."  # what was highlighted instead
+
+
+def test_a_case_without_expected_passages_gets_no_highlight_verdict(tmp_path, store):
+    outcome = run_case(store, FixedQuery([1, 0, 0]), tmp_path / "notes", Case("q", "drinks/coffee.md", "A"))
+    assert outcome.highlight_right is None
+
+
 def test_scores_from_known_ranks():
     outcomes = [
         Outcome(Case("q1", "a.md", "s"), note_rank=1, section_rank=1, top_note="a.md"),
@@ -67,7 +89,19 @@ def test_scores_from_known_ranks():
     assert scores.section_at_3 == pytest.approx(1 / 2)
 
 
+def test_the_highlight_score_counts_only_cases_with_expected_passages():
+    outcomes = [
+        Outcome(Case("q1", "a.md", "s", ("x",)), 1, 1, "a.md", highlight="x y", highlight_right=True),
+        Outcome(Case("q2", "b.md", "s", ("z",)), 1, 1, "b.md", highlight="y", highlight_right=False),
+        Outcome(Case("q3", "c.md", "s"), 1, 1, "c.md"),
+    ]
+    assert score(outcomes).highlight == pytest.approx(1 / 2)
+
+
 def test_cases_load_from_json(tmp_path):
     path = tmp_path / "queries.json"
-    path.write_text(json.dumps([{"query": "q", "note": "a.md", "section": "S"}, {"query": "r", "note": "b.md"}]))
-    assert load_cases(path) == [Case("q", "a.md", "S"), Case("r", "b.md")]
+    path.write_text(json.dumps([
+        {"query": "q", "note": "a.md", "section": "S", "passages": ["first", "second"]},
+        {"query": "r", "note": "b.md"},
+    ]))
+    assert load_cases(path) == [Case("q", "a.md", "S", ("first", "second")), Case("r", "b.md")]

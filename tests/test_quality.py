@@ -59,12 +59,14 @@ def test_a_highlight_is_judged_together_with_the_sentences_around_it(example_ind
 
 @pytest.mark.model
 def test_search_quality_on_the_example_queries_does_not_regress(example_index, embedder):
-    # Measured with bge-small-en-v1.5: note@1 0.98, note@3 1.00, section@1 0.79, MRR 0.99.
-    # The floors leave room for one borderline query but not for real regressions: dropping
-    # the query instruction or the heading paths costs section@1 0.08 to 0.11, and
-    # all-MiniLM-L6-v2 only reaches note@1 0.91.
+    # Measured with bge-small-en-v1.5: note@1 0.98, note@3 1.00, section@1 0.79, MRR 0.99,
+    # highlight 0.82 (28 of 34). The floors leave room for one borderline query but not for
+    # real regressions: dropping the query instruction or the heading paths costs section@1
+    # 0.08 to 0.11, all-MiniLM-L6-v2 only reaches note@1 0.91, and judging each passage on
+    # its own, without its neighbours, gets 25 of 34 highlights right.
     scores = score([run_case(example_index, embedder, EXAMPLES, case) for case in load_cases(QUERIES)])
     assert scores.note_at_1 >= 0.93
     assert scores.note_at_3 >= 0.97
     assert scores.section_at_1 >= 0.75
     assert scores.mrr >= 0.95
+    assert scores.highlight >= 0.79
