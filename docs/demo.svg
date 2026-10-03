@@ -1,160 +1,148 @@
-<svg class="rich-terminal" viewBox="0 0 1092 782.0" xmlns="http://www.w3.org/2000/svg">
+<svg class="rich-terminal" viewBox="0 0 1092 708.8" xmlns="http://www.w3.org/2000/svg">
     <!-- Generated with Rich https://www.textualize.io -->
     <style>
 
-    .terminal-3947648065-matrix {
+    .terminal-1789162505-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-3947648065-title {
+    .terminal-1789162505-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-3947648065-r1 { fill: #98a84b;font-weight: bold }
-.terminal-3947648065-r2 { fill: #c5c8c6 }
-.terminal-3947648065-r3 { fill: #c5c8c6;font-weight: bold }
-.terminal-3947648065-r4 { fill: #868887 }
-.terminal-3947648065-r5 { fill: #68a0b3 }
+    .terminal-1789162505-r1 { fill: #98a84b;font-weight: bold }
+.terminal-1789162505-r2 { fill: #c5c8c6 }
+.terminal-1789162505-r3 { fill: #c5c8c6;font-weight: bold }
+.terminal-1789162505-r4 { fill: #868887 }
+.terminal-1789162505-r5 { fill: #68a0b3 }
     </style>
 
     <defs>
-    <clipPath id="terminal-3947648065-clip-terminal">
-      <rect x="0" y="0" width="1072.6" height="731.0" />
+    <clipPath id="terminal-1789162505-clip-terminal">
+      <rect x="0" y="0" width="1072.6" height="657.8" />
     </clipPath>
-    <clipPath id="terminal-3947648065-line-0">
+    <clipPath id="terminal-1789162505-line-0">
     <rect x="0" y="1.5" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-1">
+<clipPath id="terminal-1789162505-line-1">
     <rect x="0" y="25.9" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-2">
+<clipPath id="terminal-1789162505-line-2">
     <rect x="0" y="50.3" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-3">
+<clipPath id="terminal-1789162505-line-3">
     <rect x="0" y="74.7" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-4">
+<clipPath id="terminal-1789162505-line-4">
     <rect x="0" y="99.1" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-5">
+<clipPath id="terminal-1789162505-line-5">
     <rect x="0" y="123.5" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-6">
+<clipPath id="terminal-1789162505-line-6">
     <rect x="0" y="147.9" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-7">
+<clipPath id="terminal-1789162505-line-7">
     <rect x="0" y="172.3" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-8">
+<clipPath id="terminal-1789162505-line-8">
     <rect x="0" y="196.7" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-9">
+<clipPath id="terminal-1789162505-line-9">
     <rect x="0" y="221.1" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-10">
+<clipPath id="terminal-1789162505-line-10">
     <rect x="0" y="245.5" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-11">
+<clipPath id="terminal-1789162505-line-11">
     <rect x="0" y="269.9" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-12">
+<clipPath id="terminal-1789162505-line-12">
     <rect x="0" y="294.3" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-13">
+<clipPath id="terminal-1789162505-line-13">
     <rect x="0" y="318.7" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-14">
+<clipPath id="terminal-1789162505-line-14">
     <rect x="0" y="343.1" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-15">
+<clipPath id="terminal-1789162505-line-15">
     <rect x="0" y="367.5" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-16">
+<clipPath id="terminal-1789162505-line-16">
     <rect x="0" y="391.9" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-17">
+<clipPath id="terminal-1789162505-line-17">
     <rect x="0" y="416.3" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-18">
+<clipPath id="terminal-1789162505-line-18">
     <rect x="0" y="440.7" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-19">
+<clipPath id="terminal-1789162505-line-19">
     <rect x="0" y="465.1" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-20">
+<clipPath id="terminal-1789162505-line-20">
     <rect x="0" y="489.5" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-21">
+<clipPath id="terminal-1789162505-line-21">
     <rect x="0" y="513.9" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-22">
+<clipPath id="terminal-1789162505-line-22">
     <rect x="0" y="538.3" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-23">
+<clipPath id="terminal-1789162505-line-23">
     <rect x="0" y="562.7" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-24">
+<clipPath id="terminal-1789162505-line-24">
     <rect x="0" y="587.1" width="1073.6" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3947648065-line-25">
+<clipPath id="terminal-1789162505-line-25">
     <rect x="0" y="611.5" width="1073.6" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-3947648065-line-26">
-    <rect x="0" y="635.9" width="1073.6" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-3947648065-line-27">
-    <rect x="0" y="660.3" width="1073.6" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-3947648065-line-28">
-    <rect x="0" y="684.7" width="1073.6" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1090" height="780" rx="8"/><text class="terminal-3947648065-title" fill="#c5c8c6" text-anchor="middle" x="545" y="27">dejanote</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1090" height="706.8" rx="8"/><text class="terminal-1789162505-title" fill="#c5c8c6" text-anchor="middle" x="545" y="27">dejanote</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-3947648065-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-1789162505-clip-terminal)">
     
-    <g class="terminal-3947648065-matrix">
-    <text class="terminal-3947648065-r1" x="0" y="20" textLength="12.2" clip-path="url(#terminal-3947648065-line-0)">$</text><text class="terminal-3947648065-r3" x="24.4" y="20" textLength="353.8" clip-path="url(#terminal-3947648065-line-0)">dejanote&#160;index&#160;examples/notes</text><text class="terminal-3947648065-r2" x="1073.6" y="20" textLength="12.2" clip-path="url(#terminal-3947648065-line-0)">
-</text><text class="terminal-3947648065-r2" x="0" y="44.4" textLength="902.8" clip-path="url(#terminal-3947648065-line-1)">Indexed&#160;26&#160;notes&#160;from&#160;examples/notes&#160;(26&#160;new).&#160;Embedded&#160;98&#160;chunks&#160;in&#160;4.1s.</text><text class="terminal-3947648065-r2" x="1073.6" y="44.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-1)">
-</text><text class="terminal-3947648065-r2" x="0" y="68.8" textLength="329.4" clip-path="url(#terminal-3947648065-line-2)">Index:&#160;~/.dejanote/index.db</text><text class="terminal-3947648065-r2" x="1073.6" y="68.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-2)">
-</text><text class="terminal-3947648065-r4" x="0" y="93.2" textLength="463.6" clip-path="url(#terminal-3947648065-line-3)">No&#160;network&#160;connections&#160;were&#160;attempted.</text><text class="terminal-3947648065-r2" x="1073.6" y="93.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-3)">
-</text><text class="terminal-3947648065-r2" x="1073.6" y="117.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-4)">
-</text><text class="terminal-3947648065-r1" x="0" y="142" textLength="12.2" clip-path="url(#terminal-3947648065-line-5)">$</text><text class="terminal-3947648065-r3" x="24.4" y="142" textLength="756.4" clip-path="url(#terminal-3947648065-line-5)">dejanote&#160;search&#160;&quot;felt&#160;burned&#160;out&#160;and&#160;needed&#160;a&#160;break&quot;&#160;--limit&#160;3</text><text class="terminal-3947648065-r2" x="1073.6" y="142" textLength="12.2" clip-path="url(#terminal-3947648065-line-5)">
-</text><text class="terminal-3947648065-r3" x="0" y="166.4" textLength="48.8" clip-path="url(#terminal-3947648065-line-6)">0.64</text><text class="terminal-3947648065-r5" x="73.2" y="166.4" textLength="463.6" clip-path="url(#terminal-3947648065-line-6)">examples/notes/journal/2024-05-12.md:1</text><text class="terminal-3947648065-r2" x="1073.6" y="166.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-6)">
-</text><text class="terminal-3947648065-r4" x="73.2" y="190.8" textLength="122" clip-path="url(#terminal-3947648065-line-7)">2024-05-12</text><text class="terminal-3947648065-r2" x="1073.6" y="190.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-7)">
-</text><text class="terminal-3947648065-r2" x="0" y="215.2" textLength="1000.4" clip-path="url(#terminal-3947648065-line-8)">&#160;&#160;&#160;&#160;&#160;&#160;Rough&#160;week.&#160;Shipped&#160;the&#160;migration&#160;on&#160;Friday&#160;after&#160;three&#160;late&#160;nights&#160;and&#160;I&#160;am</text><text class="terminal-3947648065-r2" x="1073.6" y="215.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-8)">
-</text><text class="terminal-3947648065-r2" x="0" y="239.6" textLength="1024.8" clip-path="url(#terminal-3947648065-line-9)">&#160;&#160;&#160;&#160;&#160;&#160;completely&#160;drained.&#160;Snapped&#160;at&#160;Ben&#160;in&#160;standup&#160;on&#160;Thursday&#160;over&#160;something&#160;tiny;</text><text class="terminal-3947648065-r2" x="1073.6" y="239.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-9)">
-</text><text class="terminal-3947648065-r2" x="0" y="264" textLength="683.2" clip-path="url(#terminal-3947648065-line-10)">&#160;&#160;&#160;&#160;&#160;&#160;apologised&#160;afterwards,&#160;but&#160;it&#160;has&#160;been&#160;bugging&#160;me.</text><text class="terminal-3947648065-r2" x="1073.6" y="264" textLength="12.2" clip-path="url(#terminal-3947648065-line-10)">
-</text><text class="terminal-3947648065-r2" x="0" y="288.4" textLength="439.2" clip-path="url(#terminal-3947648065-line-11)">&#160;&#160;&#160;&#160;&#160;&#160;Went&#160;for&#160;a&#160;long&#160;walk&#160;by&#160;the...</text><text class="terminal-3947648065-r2" x="1073.6" y="288.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-11)">
-</text><text class="terminal-3947648065-r2" x="1073.6" y="312.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-12)">
-</text><text class="terminal-3947648065-r3" x="0" y="337.2" textLength="48.8" clip-path="url(#terminal-3947648065-line-13)">0.60</text><text class="terminal-3947648065-r5" x="73.2" y="337.2" textLength="439.2" clip-path="url(#terminal-3947648065-line-13)">examples/notes/books/deep-work.md:20</text><text class="terminal-3947648065-r2" x="1073.6" y="337.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-13)">
-</text><text class="terminal-3947648065-r4" x="73.2" y="361.6" textLength="536.8" clip-path="url(#terminal-3947648065-line-14)">Deep&#160;Work,&#160;by&#160;Cal&#160;Newport&#160;&gt;&#160;What&#160;I&#160;am&#160;trying</text><text class="terminal-3947648065-r2" x="1073.6" y="361.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-14)">
-</text><text class="terminal-3947648065-r2" x="0" y="386" textLength="1012.6" clip-path="url(#terminal-3947648065-line-15)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;two&#160;90-minute&#160;blocks&#160;in&#160;the&#160;morning&#160;with&#160;notifications&#160;off&#160;and&#160;the&#160;phone&#160;in</text><text class="terminal-3947648065-r2" x="1073.6" y="386" textLength="12.2" clip-path="url(#terminal-3947648065-line-15)">
-</text><text class="terminal-3947648065-r2" x="0" y="410.4" textLength="219.6" clip-path="url(#terminal-3947648065-line-16)">&#160;&#160;&#160;&#160;&#160;&#160;another&#160;room</text><text class="terminal-3947648065-r2" x="1073.6" y="410.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-16)">
-</text><text class="terminal-3947648065-r2" x="0" y="434.8" textLength="707.6" clip-path="url(#terminal-3947648065-line-17)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;batching&#160;email&#160;and&#160;chat&#160;to&#160;three&#160;fixed&#160;times&#160;a&#160;day</text><text class="terminal-3947648065-r2" x="1073.6" y="434.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-17)">
-</text><text class="terminal-3947648065-r2" x="0" y="459.2" textLength="1061.4" clip-path="url(#terminal-3947648065-line-18)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;a&#160;shutdown&#160;ritual&#160;at&#160;the&#160;end&#160;of&#160;the&#160;day:&#160;review&#160;tomorrow&#x27;s&#160;calendar,&#160;write&#160;down</text><text class="terminal-3947648065-r2" x="1073.6" y="459.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-18)">
-</text><text class="terminal-3947648065-r2" x="0" y="483.6" textLength="158.6" clip-path="url(#terminal-3947648065-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;open...</text><text class="terminal-3947648065-r2" x="1073.6" y="483.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-19)">
-</text><text class="terminal-3947648065-r4" x="0" y="508" textLength="427" clip-path="url(#terminal-3947648065-line-20)">&#160;&#160;&#160;&#160;&#160;&#160;also:&#160;The&#160;core&#160;idea&#160;(line&#160;12)</text><text class="terminal-3947648065-r2" x="1073.6" y="508" textLength="12.2" clip-path="url(#terminal-3947648065-line-20)">
-</text><text class="terminal-3947648065-r2" x="1073.6" y="532.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-21)">
-</text><text class="terminal-3947648065-r3" x="0" y="556.8" textLength="48.8" clip-path="url(#terminal-3947648065-line-22)">0.60</text><text class="terminal-3947648065-r5" x="73.2" y="556.8" textLength="634.4" clip-path="url(#terminal-3947648065-line-22)">examples/notes/work/postmortem-checkout-outage.md:24</text><text class="terminal-3947648065-r2" x="1073.6" y="556.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-22)">
-</text><text class="terminal-3947648065-r4" x="73.2" y="581.2" textLength="719.8" clip-path="url(#terminal-3947648065-line-23)">Postmortem:&#160;checkout&#160;outage&#160;on&#160;12&#160;February&#160;&gt;&#160;What&#160;went&#160;well</text><text class="terminal-3947648065-r2" x="1073.6" y="581.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-23)">
-</text><text class="terminal-3947648065-r2" x="0" y="605.6" textLength="585.6" clip-path="url(#terminal-3947648065-line-24)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;the&#160;rollback&#160;procedure&#160;worked&#160;as&#160;written</text><text class="terminal-3947648065-r2" x="1073.6" y="605.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-24)">
-</text><text class="terminal-3947648065-r2" x="0" y="630" textLength="756.4" clip-path="url(#terminal-3947648065-line-25)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;support&#160;had&#160;a&#160;status&#160;page&#160;message&#160;up&#160;within&#160;15&#160;minutes</text><text class="terminal-3947648065-r2" x="1073.6" y="630" textLength="12.2" clip-path="url(#terminal-3947648065-line-25)">
-</text><text class="terminal-3947648065-r4" x="0" y="654.4" textLength="646.6" clip-path="url(#terminal-3947648065-line-26)">&#160;&#160;&#160;&#160;&#160;&#160;also:&#160;What&#160;went&#160;badly&#160;(line&#160;29),&#160;intro&#160;(line&#160;3)</text><text class="terminal-3947648065-r2" x="1073.6" y="654.4" textLength="12.2" clip-path="url(#terminal-3947648065-line-26)">
-</text><text class="terminal-3947648065-r2" x="1073.6" y="678.8" textLength="12.2" clip-path="url(#terminal-3947648065-line-27)">
-</text><text class="terminal-3947648065-r4" x="0" y="703.2" textLength="463.6" clip-path="url(#terminal-3947648065-line-28)">No&#160;network&#160;connections&#160;were&#160;attempted.</text><text class="terminal-3947648065-r2" x="1073.6" y="703.2" textLength="12.2" clip-path="url(#terminal-3947648065-line-28)">
-</text><text class="terminal-3947648065-r2" x="1073.6" y="727.6" textLength="12.2" clip-path="url(#terminal-3947648065-line-29)">
+    <g class="terminal-1789162505-matrix">
+    <text class="terminal-1789162505-r1" x="0" y="20" textLength="12.2" clip-path="url(#terminal-1789162505-line-0)">$</text><text class="terminal-1789162505-r3" x="24.4" y="20" textLength="353.8" clip-path="url(#terminal-1789162505-line-0)">dejanote&#160;index&#160;examples/notes</text><text class="terminal-1789162505-r2" x="1073.6" y="20" textLength="12.2" clip-path="url(#terminal-1789162505-line-0)">
+</text><text class="terminal-1789162505-r2" x="0" y="44.4" textLength="902.8" clip-path="url(#terminal-1789162505-line-1)">Indexed&#160;26&#160;notes&#160;from&#160;examples/notes&#160;(26&#160;new).&#160;Embedded&#160;98&#160;chunks&#160;in&#160;3.9s.</text><text class="terminal-1789162505-r2" x="1073.6" y="44.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-1)">
+</text><text class="terminal-1789162505-r2" x="0" y="68.8" textLength="329.4" clip-path="url(#terminal-1789162505-line-2)">Index:&#160;~/.dejanote/index.db</text><text class="terminal-1789162505-r2" x="1073.6" y="68.8" textLength="12.2" clip-path="url(#terminal-1789162505-line-2)">
+</text><text class="terminal-1789162505-r4" x="0" y="93.2" textLength="463.6" clip-path="url(#terminal-1789162505-line-3)">No&#160;network&#160;connections&#160;were&#160;attempted.</text><text class="terminal-1789162505-r2" x="1073.6" y="93.2" textLength="12.2" clip-path="url(#terminal-1789162505-line-3)">
+</text><text class="terminal-1789162505-r2" x="1073.6" y="117.6" textLength="12.2" clip-path="url(#terminal-1789162505-line-4)">
+</text><text class="terminal-1789162505-r1" x="0" y="142" textLength="12.2" clip-path="url(#terminal-1789162505-line-5)">$</text><text class="terminal-1789162505-r3" x="24.4" y="142" textLength="756.4" clip-path="url(#terminal-1789162505-line-5)">dejanote&#160;search&#160;&quot;felt&#160;burned&#160;out&#160;and&#160;needed&#160;a&#160;break&quot;&#160;--limit&#160;3</text><text class="terminal-1789162505-r2" x="1073.6" y="142" textLength="12.2" clip-path="url(#terminal-1789162505-line-5)">
+</text><text class="terminal-1789162505-r3" x="0" y="166.4" textLength="48.8" clip-path="url(#terminal-1789162505-line-6)">0.64</text><text class="terminal-1789162505-r5" x="73.2" y="166.4" textLength="463.6" clip-path="url(#terminal-1789162505-line-6)">examples/notes/journal/2024-05-12.md:5</text><text class="terminal-1789162505-r2" x="1073.6" y="166.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-6)">
+</text><text class="terminal-1789162505-r4" x="73.2" y="190.8" textLength="122" clip-path="url(#terminal-1789162505-line-7)">2024-05-12</text><text class="terminal-1789162505-r2" x="1073.6" y="190.8" textLength="12.2" clip-path="url(#terminal-1789162505-line-7)">
+</text><text class="terminal-1789162505-r2" x="0" y="215.2" textLength="122" clip-path="url(#terminal-1789162505-line-8)">&#160;&#160;&#160;&#160;&#160;&#160;...&#160;</text><text class="terminal-1789162505-r3" x="122" y="215.2" textLength="463.6" clip-path="url(#terminal-1789162505-line-8)">Decided:&#160;taking&#160;Monday&#160;off,&#160;no&#160;laptop.</text><text class="terminal-1789162505-r2" x="585.6" y="215.2" textLength="475.8" clip-path="url(#terminal-1789162505-line-8)">&#160;And&#160;I&#160;need&#160;to&#160;stop&#160;saying&#160;yes&#160;to&#160;every</text><text class="terminal-1789162505-r2" x="1073.6" y="215.2" textLength="12.2" clip-path="url(#terminal-1789162505-line-8)">
+</text><text class="terminal-1789162505-r2" x="0" y="239.6" textLength="1073.6" clip-path="url(#terminal-1789162505-line-9)">&#160;&#160;&#160;&#160;&#160;&#160;side&#160;project&#160;people&#160;bring&#160;me.&#160;The&#160;hiring&#160;panel&#160;and&#160;the&#160;docs&#160;working&#160;group&#160;can&#160;find</text><text class="terminal-1789162505-r2" x="1073.6" y="239.6" textLength="12.2" clip-path="url(#terminal-1789162505-line-9)">
+</text><text class="terminal-1789162505-r2" x="0" y="264" textLength="841.8" clip-path="url(#terminal-1789162505-line-10)">&#160;&#160;&#160;&#160;&#160;&#160;someone&#160;else&#160;for&#160;a&#160;few&#160;months.&#160;Talk&#160;to&#160;Sam&#160;about&#160;it&#160;on&#160;Tuesday.</text><text class="terminal-1789162505-r2" x="1073.6" y="264" textLength="12.2" clip-path="url(#terminal-1789162505-line-10)">
+</text><text class="terminal-1789162505-r2" x="1073.6" y="288.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-11)">
+</text><text class="terminal-1789162505-r3" x="0" y="312.8" textLength="48.8" clip-path="url(#terminal-1789162505-line-12)">0.60</text><text class="terminal-1789162505-r5" x="73.2" y="312.8" textLength="439.2" clip-path="url(#terminal-1789162505-line-12)">examples/notes/books/deep-work.md:22</text><text class="terminal-1789162505-r2" x="1073.6" y="312.8" textLength="12.2" clip-path="url(#terminal-1789162505-line-12)">
+</text><text class="terminal-1789162505-r4" x="73.2" y="337.2" textLength="536.8" clip-path="url(#terminal-1789162505-line-13)">Deep&#160;Work,&#160;by&#160;Cal&#160;Newport&#160;&gt;&#160;What&#160;I&#160;am&#160;trying</text><text class="terminal-1789162505-r2" x="1073.6" y="337.2" textLength="12.2" clip-path="url(#terminal-1789162505-line-13)">
+</text><text class="terminal-1789162505-r2" x="0" y="361.6" textLength="122" clip-path="url(#terminal-1789162505-line-14)">&#160;&#160;&#160;&#160;&#160;&#160;...&#160;</text><text class="terminal-1789162505-r3" x="122" y="361.6" textLength="927.2" clip-path="url(#terminal-1789162505-line-14)">-&#160;a&#160;shutdown&#160;ritual&#160;at&#160;the&#160;end&#160;of&#160;the&#160;day:&#160;review&#160;tomorrow&#x27;s&#160;calendar,&#160;write</text><text class="terminal-1789162505-r2" x="1073.6" y="361.6" textLength="12.2" clip-path="url(#terminal-1789162505-line-14)">
+</text><text class="terminal-1789162505-r3" x="73.2" y="386" textLength="561.2" clip-path="url(#terminal-1789162505-line-15)">down&#160;open&#160;loops,&#160;then&#160;stop&#160;thinking&#160;about&#160;work</text><text class="terminal-1789162505-r2" x="1073.6" y="386" textLength="12.2" clip-path="url(#terminal-1789162505-line-15)">
+</text><text class="terminal-1789162505-r2" x="0" y="410.4" textLength="610" clip-path="url(#terminal-1789162505-line-16)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;being&#160;bored&#160;on&#160;purpose:&#160;no&#160;phone&#160;in&#160;queues</text><text class="terminal-1789162505-r2" x="1073.6" y="410.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-16)">
+</text><text class="terminal-1789162505-r4" x="0" y="434.8" textLength="427" clip-path="url(#terminal-1789162505-line-17)">&#160;&#160;&#160;&#160;&#160;&#160;also:&#160;The&#160;core&#160;idea&#160;(line&#160;12)</text><text class="terminal-1789162505-r2" x="1073.6" y="434.8" textLength="12.2" clip-path="url(#terminal-1789162505-line-17)">
+</text><text class="terminal-1789162505-r2" x="1073.6" y="459.2" textLength="12.2" clip-path="url(#terminal-1789162505-line-18)">
+</text><text class="terminal-1789162505-r3" x="0" y="483.6" textLength="48.8" clip-path="url(#terminal-1789162505-line-19)">0.60</text><text class="terminal-1789162505-r5" x="73.2" y="483.6" textLength="634.4" clip-path="url(#terminal-1789162505-line-19)">examples/notes/work/postmortem-checkout-outage.md:25</text><text class="terminal-1789162505-r2" x="1073.6" y="483.6" textLength="12.2" clip-path="url(#terminal-1789162505-line-19)">
+</text><text class="terminal-1789162505-r4" x="73.2" y="508" textLength="719.8" clip-path="url(#terminal-1789162505-line-20)">Postmortem:&#160;checkout&#160;outage&#160;on&#160;12&#160;February&#160;&gt;&#160;What&#160;went&#160;well</text><text class="terminal-1789162505-r2" x="1073.6" y="508" textLength="12.2" clip-path="url(#terminal-1789162505-line-20)">
+</text><text class="terminal-1789162505-r2" x="0" y="532.4" textLength="585.6" clip-path="url(#terminal-1789162505-line-21)">&#160;&#160;&#160;&#160;&#160;&#160;-&#160;the&#160;rollback&#160;procedure&#160;worked&#160;as&#160;written</text><text class="terminal-1789162505-r2" x="1073.6" y="532.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-21)">
+</text><text class="terminal-1789162505-r3" x="73.2" y="556.8" textLength="683.2" clip-path="url(#terminal-1789162505-line-22)">-&#160;support&#160;had&#160;a&#160;status&#160;page&#160;message&#160;up&#160;within&#160;15&#160;minutes</text><text class="terminal-1789162505-r2" x="1073.6" y="556.8" textLength="12.2" clip-path="url(#terminal-1789162505-line-22)">
+</text><text class="terminal-1789162505-r4" x="0" y="581.2" textLength="646.6" clip-path="url(#terminal-1789162505-line-23)">&#160;&#160;&#160;&#160;&#160;&#160;also:&#160;What&#160;went&#160;badly&#160;(line&#160;29),&#160;intro&#160;(line&#160;3)</text><text class="terminal-1789162505-r2" x="1073.6" y="581.2" textLength="12.2" clip-path="url(#terminal-1789162505-line-23)">
+</text><text class="terminal-1789162505-r2" x="1073.6" y="605.6" textLength="12.2" clip-path="url(#terminal-1789162505-line-24)">
+</text><text class="terminal-1789162505-r4" x="0" y="630" textLength="463.6" clip-path="url(#terminal-1789162505-line-25)">No&#160;network&#160;connections&#160;were&#160;attempted.</text><text class="terminal-1789162505-r2" x="1073.6" y="630" textLength="12.2" clip-path="url(#terminal-1789162505-line-25)">
+</text><text class="terminal-1789162505-r2" x="1073.6" y="654.4" textLength="12.2" clip-path="url(#terminal-1789162505-line-26)">
 </text>
     </g>
     </g>

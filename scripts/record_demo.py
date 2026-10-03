@@ -25,7 +25,7 @@ COMMANDS = [
     "dejanote index examples/notes",
     'dejanote search "felt burned out and needed a break" --limit 3',
 ]
-BROWSE_QUERY = "the heating stopped and the gauge is low"
+BROWSE_QUERY = "recover a branch I deleted by accident"
 
 
 def main() -> None:
@@ -76,8 +76,9 @@ def _record_browser() -> str:
             await app.workers.wait_for_complete()  # the model has loaded
             await pilot.press(*BROWSE_QUERY)
             await pilot.pause(0.3)
-            await app.workers.wait_for_complete()  # the search has run
-            await pilot.pause()
+            while app.workers:  # the search, then finding the selected result's highlight
+                await app.workers.wait_for_complete()
+                await pilot.pause()
             return app.export_screenshot(title="dejanote browse")
 
     return asyncio.run(session())
